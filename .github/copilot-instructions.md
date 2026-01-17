@@ -7,6 +7,48 @@
 - **UI**: shadcn/ui components with Radix UI primitives and Tailwind CSS v4
 - **Database**: MySQL with Eloquent ORM
 - **External**: Shopify GraphQL Admin API integration
+- **Multi-Tenant**: Shop-based with per-store API credentials and user access control
+
+## Multi-Tenant Architecture
+
+The application supports multiple Shopify stores with granular user access:
+
+### Access Control Model
+- **Admin Users**: `is_admin = true` or user ID 1 - full access to all stores and admin pages
+- **Shop Access**: Users are granted access to specific shops via `user_shop_accesses` table
+  - `read-only`: View offers and manifests, no modifications
+  - `read-write`: Full CRUD on offers and manifests
+
+### Middleware
+- `admin` - Requires admin status ([app/Http/Middleware/EnsureAdmin.php](app/Http/Middleware/EnsureAdmin.php))
+- `shop.access:read` - At least read-only access to shop ([app/Http/Middleware/EnsureShopAccess.php](app/Http/Middleware/EnsureShopAccess.php))
+- `shop.access:write` - Read-write access to shop
+
+### Shop-Scoped API Pattern
+All offer and Shopify API endpoints are scoped to a shop:
+```php
+// routes/api.php
+Route::prefix('shops/{shop}')
+    ->middleware(['auth', 'shop.access:read'])
+    ->group(function () {
+        Route::get('offers', [OfferController::class, 'index']);
+        // ...
+    });
+```
+
+### Creating Shop-Specific Services
+Controllers create services with shop-specific configuration:
+```php
+// In OfferController
+private function makeOfferService(ShopifyShop $shop): OfferService
+{
+    $client = new ShopifyClient($shop);
+    return new OfferService(
+        new ShopifyProductService($client),
+        new ShopifyOrderService($client)
+    );
+}
+```
 
 ## Project Pattern
 
@@ -14,12 +56,13 @@ Blade routes in [routes/web.php](routes/web.php) return minimal views that mount
 
 ### Mounting Pattern Example
 
-Blade template ([resources/views/offer-detail.blade.php](resources/views/offer-detail.blade.php)):
+Blade template ([resources/views/shop/offers/detail.blade.php](resources/views/shop/offers/detail.blade.php)):
 ```blade
 @extends('layouts.app')
 @section('content')
 <div id="offer-detail-root" 
-     data-api-base="{{ url('/api') }}" 
+     data-api-base="{{ url('/api') }}"
+     data-shop-id="{{ $shopId }}"
      data-offer-id="{{ $offerId }}">
 </div>
 @endsection
@@ -31,14 +74,19 @@ Blade template ([resources/views/offer-detail.blade.php](resources/views/offer-d
 React entrypoint ([resources/js/offer-detail.tsx](resources/js/offer-detail.tsx)):
 ```tsx
 const root = document.getElementById('offer-detail-root');
+const shopId = root?.dataset.shopId;
 const offerId = root?.dataset.offerId;
 const apiBase = root?.dataset.apiBase || '/api';
+// API calls use: `${apiBase}/shops/${shopId}/offers/${offerId}`
 ```
 
 ## Core Domain Models
 
 All under [app/Models](app/Models):
-- `Offer` - Wine offers with Shopify variant linkage
+- `ShopifyShop` - Shopify store with API credentials
+- `User` - Application user with admin status
+- `UserShopAccess` - Pivot linking users to shops with access level
+- `Offer` - Wine offers with Shopify variant linkage (shop-scoped)
 - `OfferManifest` - Individual bottle allocations to orders
 - `OrderToVariant` - Links Shopify orders to variants for webhook processing
 
@@ -49,7 +97,7 @@ All under [app/Models](app/Models):
 - `OfferManifestService` - Manifest quantity management, product data enrichment
 
 ### Shopify Services ([app/Services/Shopify](app/Services/Shopify))
-- `ShopifyClient` - Base GraphQL client with lazy config validation
+- `ShopifyClient` - Base GraphQL client with shop-specific credentials
 - `ShopifyProductService` - Product data, inventory, metafields
 - `ShopifyOrderService` - Order queries, cancel, capture
 - `ShopifyOrderProcessingService` - Full order processing with manifest allocation
@@ -60,20 +108,30 @@ All under [app/Models](app/Models):
 
 Defined in [routes/api.php](routes/api.php):
 
-### Offers
-- `GET/POST /api/offers` - List/create offers
-- `GET/DELETE /api/offers/{id}` - Get/delete (use `?detail=1` for manifests)
-- `GET /api/offers/{id}/metafields` - Update and return Shopify metafields
-- `GET /api/offers/{id}/orders` - Get orders with manifest allocations
+### Shops
+- `GET /api/shops` - List accessible shops for current user
 
-### Manifests
-- `GET/PUT /api/offers/{id}/manifests` - Get summary / update quantities
+### Offers (shop-scoped)
+- `GET/POST /api/shops/{shop}/offers` - List/create offers
+- `GET/DELETE /api/shops/{shop}/offers/{id}` - Get/delete (use `?detail=1` for manifests)
+- `GET /api/shops/{shop}/offers/{id}/metafields` - Update and return Shopify metafields
+- `GET /api/shops/{shop}/offers/{id}/orders` - Get orders with manifest allocations
 
-### Shopify
-- `GET /api/shopify/products?type=deal|manifest-item` - Get tagged products
-- `POST /api/shopify/product-data` - Get product data by variant IDs
-- `POST /api/shopify/set-inventory` - Set inventory quantity
-- `POST /api/shopify/webhook` - Order webhook (HMAC verified, no auth)
+### Manifests (shop-scoped)
+- `GET/PUT /api/shops/{shop}/offers/{id}/manifests` - Get summary / update quantities
+
+### Shopify (shop-scoped)
+- `GET /api/shops/{shop}/shopify/products?type=deal|manifest-item` - Get tagged products
+- `POST /api/shops/{shop}/shopify/product-data` - Get product data by variant IDs
+- `POST /api/shops/{shop}/shopify/set-inventory` - Set inventory quantity
+- `POST /api/shopify/webhook` - Order webhook (HMAC verified, uses X-Shopify-Shop-Domain header)
+
+### Admin
+- `GET/POST /api/admin/users` - List/create users
+- `GET/PUT/DELETE /api/admin/users/{id}` - User CRUD
+- `PUT /api/admin/users/{id}/shop-accesses` - Update user shop access
+- `GET/POST /api/admin/stores` - List/create stores
+- `GET/PUT/DELETE /api/admin/stores/{id}` - Store CRUD
 
 ## Frontend Patterns
 
@@ -98,10 +156,34 @@ Each page follows this pattern:
 1. Mount element with data attributes
 2. `createRoot` renders the TSX component
 3. Component fetches data from API on mount
-4. Loading/error states handled with early returns
+4. Loading states handled using `<Skeleton>` components from `resources/js/components/ui/skeleton.tsx` instead of raw text.
 5. Container + MainTitle + content layout
 
 ## Key UI Flows
+
+### Offers (Shop List) ([resources/js/shops.tsx](resources/js/shops.tsx))
+- Entry point for most users (labeled "Offers" in navbar).
+- Lists accessible shops with access level badges.
+- Links to shop dashboard/offers.
+
+### Admin User Management ([resources/js/admin-users.tsx](resources/js/admin-users.tsx), [resources/js/admin-user-detail.tsx](resources/js/admin-user-detail.tsx))
+- Labeled "Users" in navbar.
+- List users with create/delete actions.
+- Edit user details and shop access assignments.
+
+### Manage Shops (Admin Store Management) ([resources/js/admin-stores.tsx](resources/js/admin-stores.tsx), [resources/js/admin-store-detail.tsx](resources/js/admin-store-detail.tsx))
+- Labeled "Manage Shops" in navbar.
+- List stores with create/delete actions.
+- Edit store details and API credentials.
+- **Logic**: When the first store is created, any existing offers with `shop_id IS NULL` are automatically assigned to it.
+
+## Shopify Performance & Caching
+
+The `ShopifyProductService` implements a robust caching strategy to minimize API calls to Shopify:
+- **Extended TTL**: Most product and variant data is cached for **1 hour**.
+- **Individual Variant Caching**: Variants are cached by their specific ID hash, allowing for partial cache hits in bulk requests.
+- **Proactive Invalidation**: Caches are automatically cleared when inventory is updated or metafields are written via the service.
+- **Shop-Specific**: All caching is scoped to the specific Shopify shop credentials.
 
 ### Offer List ([resources/js/offers.tsx](resources/js/offers.tsx))
 - Lists offers with Shopify product data
@@ -140,6 +222,7 @@ Each page follows this pattern:
 ## Configuration
 
 ### Shopify ([config/services.php](config/services.php))
+Shopify API credentials are now stored per-store in the `shopify_shops` table, not in environment variables. The legacy config block remains for reference:
 ```php
 'shopify' => [
     'store_url' => env('SHOPIFY_STORE_URL'),
