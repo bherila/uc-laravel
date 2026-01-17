@@ -16,6 +16,28 @@ CREATE TABLE `2023_05_31_inventory` (
   PRIMARY KEY (`sku`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `cache`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cache` (
+  `key` varchar(255) NOT NULL,
+  `value` mediumtext NOT NULL,
+  `expiration` int(11) NOT NULL,
+  PRIMARY KEY (`key`),
+  KEY `cache_expiration_index` (`expiration`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `cache_locks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cache_locks` (
+  `key` varchar(255) NOT NULL,
+  `owner` varchar(255) NOT NULL,
+  `expiration` int(11) NOT NULL,
+  PRIMARY KEY (`key`),
+  KEY `cache_locks_expiration_index` (`expiration`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `computed_buyer_varietals`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -359,6 +381,27 @@ CREATE TABLE `shopify_product_variant` (
   PRIMARY KEY (`variantId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `shopify_shops`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `shopify_shops` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `shop_domain` varchar(255) NOT NULL,
+  `app_name` varchar(1024) DEFAULT NULL,
+  `admin_api_token` varchar(1024) DEFAULT NULL,
+  `api_version` varchar(1024) NOT NULL DEFAULT '2025-01',
+  `api_key` varchar(1024) DEFAULT NULL,
+  `api_secret_key` varchar(1024) DEFAULT NULL,
+  `webhook_version` varchar(1024) NOT NULL DEFAULT '2025-01',
+  `webhook_secret` varchar(1024) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `shopify_shops_shop_domain_unique` (`shop_domain`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `user_list`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -438,6 +481,23 @@ CREATE TABLE `user_list` (
   KEY `user_email` (`user_email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `user_shop_accesses`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user_shop_accesses` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL,
+  `shopify_shop_id` bigint(20) unsigned NOT NULL,
+  `access_level` enum('read-only','read-write') NOT NULL DEFAULT 'read-only',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_shop_accesses_user_id_shopify_shop_id_unique` (`user_id`,`shopify_shop_id`),
+  KEY `user_shop_accesses_shopify_shop_id_foreign` (`shopify_shop_id`),
+  CONSTRAINT `user_shop_accesses_shopify_shop_id_foreign` FOREIGN KEY (`shopify_shop_id`) REFERENCES `shopify_shops` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `user_shop_accesses_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -446,13 +506,9 @@ CREATE TABLE `users` (
   `email` varchar(50) NOT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
   `password` varchar(100) DEFAULT NULL,
+  `is_admin` tinyint(1) NOT NULL DEFAULT 0,
   `alias` varchar(50) DEFAULT NULL,
-  `ax_maxmin` tinyint(1) NOT NULL DEFAULT 0,
-  `ax_homes` tinyint(1) DEFAULT 0,
-  `ax_tax` tinyint(1) NOT NULL DEFAULT 0,
-  `ax_evdb` tinyint(1) DEFAULT 0,
-  `ax_spgp` tinyint(1) NOT NULL DEFAULT 0,
-  `ax_uc` tinyint(1) NOT NULL DEFAULT 0,
+  `last_login_at` timestamp NULL DEFAULT NULL,
   `remember_token` varchar(100) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
@@ -480,12 +536,15 @@ DROP TABLE IF EXISTS `v3_offer`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `v3_offer` (
   `offer_id` int(11) NOT NULL AUTO_INCREMENT,
+  `shop_id` bigint(20) unsigned DEFAULT NULL,
   `offer_name` varchar(100) NOT NULL,
   `offer_variant_id` varchar(100) NOT NULL,
   `offer_product_name` varchar(200) NOT NULL DEFAULT '',
   PRIMARY KEY (`offer_id`),
   UNIQUE KEY `v3_offer_unique_name` (`offer_name`),
-  UNIQUE KEY `v3_offer_pk` (`offer_variant_id`)
+  UNIQUE KEY `v3_offer_pk` (`offer_variant_id`),
+  KEY `v3_offer_shop_id_foreign` (`shop_id`),
+  CONSTRAINT `v3_offer_shop_id_foreign` FOREIGN KEY (`shop_id`) REFERENCES `shopify_shops` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `v3_offer_manifest`;
@@ -523,3 +582,9 @@ CREATE TABLE `v3_order_to_variant` (
 
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (1,'2026_01_17_065914_update_users_table_for_laravel_auth',1);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (2,'2026_01_17_071659_create_sessions_table',1);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (3,'2026_01_17_073317_add_last_login_at_to_users_table',2);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (4,'2026_01_17_080205_create_cache_table',3);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (6,'2026_01_17_091808_create_shopify_shops_table',4);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (7,'2026_01_17_091812_create_user_shop_accesses_table',5);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (8,'2026_01_17_091816_remove_deprecated_user_fields_and_add_is_admin',5);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (9,'2026_01_17_091820_add_shop_id_to_offers_table',5);

@@ -21,11 +21,18 @@ class OfferService
     /**
      * Load all offers with their Shopify product data
      *
+     * @param int|null $shopId Filter by shop ID if provided
      * @return array{offerListItems: array, offerProductData: array}
      */
-    public function loadOfferList(): array
+    public function loadOfferList(?int $shopId = null): array
     {
-        $offers = Offer::orderBy('offer_id', 'desc')->get(['offer_id', 'offer_name', 'offer_variant_id']);
+        $query = Offer::orderBy('offer_id', 'desc');
+        
+        if ($shopId !== null) {
+            $query->where('shop_id', $shopId);
+        }
+        
+        $offers = $query->get(['offer_id', 'offer_name', 'offer_variant_id', 'shop_id']);
 
         $variantIds = $offers->pluck('offer_variant_id')->toArray();
         $offerProductData = $this->shopifyProductService->getProductDataByVariantIds($variantIds);
@@ -36,6 +43,7 @@ class OfferService
             $offerListItems[] = [
                 'offer_id' => $offer->offer_id,
                 'offer_name' => $offer->offer_name,
+                'shop_id' => $offer->shop_id,
                 'offerProductData' => $productData ? [
                     ...$productData,
                     'variantId' => $offer->offer_variant_id,
@@ -55,10 +63,11 @@ class OfferService
      * @param string $offerName
      * @param string $offerVariantId
      * @param string $offerProductName
+     * @param int|null $shopId
      * @return Offer
      * @throws \RuntimeException
      */
-    public function createOffer(string $offerName, string $offerVariantId, string $offerProductName): Offer
+    public function createOffer(string $offerName, string $offerVariantId, string $offerProductName, ?int $shopId = null): Offer
     {
         // Check if an offer with the same variant ID already exists
         $existingOffer = Offer::where('offer_variant_id', $offerVariantId)->first();
@@ -71,6 +80,7 @@ class OfferService
             'offer_name' => $offerName,
             'offer_variant_id' => $offerVariantId,
             'offer_product_name' => $offerProductName,
+            'shop_id' => $shopId,
         ]);
     }
 

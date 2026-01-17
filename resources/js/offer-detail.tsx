@@ -84,27 +84,28 @@ function OfferDetailPage() {
 
   const root = document.getElementById('offer-detail-root');
   const offerId = root?.dataset.offerId;
+  const shopId = root?.dataset.shopId;
   const apiBase = root?.dataset.apiBase || '/api';
 
   const fetchOffer = useCallback(async () => {
     if (!offerId) return;
     try {
-      const data = await fetchWrapper.get(`${apiBase}/offers/${offerId}?detail=1`);
+      const data = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}?detail=1`);
       setOffer(data);
     } catch (err) {
       setError('Failed to load offer');
       console.error(err);
     }
-  }, [apiBase, offerId]);
+  }, [apiBase, shopId, offerId]);
 
   const fetchShopifyProducts = useCallback(async () => {
     try {
-      const data = await fetchWrapper.get(`${apiBase}/shopify/products?type=manifest-item`);
+      const data = await fetchWrapper.get(`${apiBase}/shops/${shopId}/shopify/products?type=manifest-item`);
       setShopifyProducts(data);
     } catch (err) {
       console.error('Failed to load Shopify data:', err);
     }
-  }, [apiBase]);
+  }, [apiBase, shopId]);
 
   useEffect(() => {
     Promise.all([fetchOffer(), fetchShopifyProducts()]).finally(() => setLoading(false));
@@ -114,7 +115,7 @@ function OfferDetailPage() {
     if (!offer?.offerProductData?.variantId) return;
     setSettingQty(true);
     try {
-      await fetchWrapper.post(`${apiBase}/shopify/set-inventory`, {
+      await fetchWrapper.post(`${apiBase}/shops/${shopId}/shopify/set-inventory`, {
         variant_id: offer.offerProductData.variantId,
         quantity: offer.unassignedCount,
       });
@@ -130,7 +131,7 @@ function OfferDetailPage() {
     if (!confirm('Are you sure you want to remove this product from the offer?')) return;
     setDeleting(variantId);
     try {
-      await fetchWrapper.put(`${apiBase}/offers/${offerId}/manifests`, {
+      await fetchWrapper.put(`${apiBase}/shops/${shopId}/offers/${offerId}/manifests`, {
         manifests: [{ sku: variantId, qty: 0 }],
       });
       await fetchOffer();
@@ -197,7 +198,7 @@ function OfferDetailPage() {
 
       <div className="flex flex-wrap gap-2 mb-6">
         <Button asChild>
-          <a href={`/offers/${offerId}/add-manifest`}>Add Bottles to Offer</a>
+          <a href={`/shop/${shopId}/offers/${offerId}/add-manifest`}>Add Bottles to Offer</a>
         </Button>
         <Button
           variant="secondary"
@@ -205,7 +206,7 @@ function OfferDetailPage() {
           disabled={!offer.hasOrders}
           className={!offer.hasOrders ? 'opacity-50 pointer-events-none' : ''}
         >
-          <a href={`/offers/${offerId}/shopify_manifests`}>View order manifests</a>
+          <a href={`/shop/${shopId}/offers/${offerId}/shopify_manifests`}>View order manifests</a>
         </Button>
         <Button
           variant="secondary"
@@ -213,7 +214,7 @@ function OfferDetailPage() {
           disabled={!hasManifestProducts}
           className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
         >
-          <a href={`/offers/${offerId}/profitability`}>View Profitability</a>
+          <a href={`/shop/${shopId}/offers/${offerId}/profitability`}>View Profitability</a>
         </Button>
         <Button
           variant="secondary"
@@ -221,7 +222,7 @@ function OfferDetailPage() {
           disabled={!hasManifestProducts}
           className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
         >
-          <a href={`/offers/${offerId}/metafields`}>View Metafields</a>
+          <a href={`/shop/${shopId}/offers/${offerId}/metafields`}>View Metafields</a>
         </Button>
       </div>
 
@@ -334,7 +335,7 @@ function OfferDetailPage() {
 
       <div className="mt-6">
         <Button variant="outline" asChild>
-          <a href="/offers">← Back to Offers</a>
+          <a href={`/shop/${shopId}/offers`}>← Back to Offers</a>
         </Button>
       </div>
     </Container>

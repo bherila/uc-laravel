@@ -90,14 +90,15 @@ function AddManifestPage() {
 
   const root = document.getElementById('offer-add-manifest-root');
   const offerId = root?.dataset.offerId;
+  const shopId = root?.dataset.shopId;
   const apiBase = root?.dataset.apiBase || '/api';
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const [productsData, offerData] = await Promise.all([
-          fetchWrapper.get(`${apiBase}/shopify/products?type=manifest-item`),
-          fetchWrapper.get(`${apiBase}/offers/${offerId}`),
+          fetchWrapper.get(`${apiBase}/shops/${shopId}/shopify/products?type=manifest-item`),
+          fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}`),
         ]);
         setProducts(productsData);
         setOfferName(offerData.offer_name);
@@ -109,7 +110,7 @@ function AddManifestPage() {
       }
     };
     loadData();
-  }, [apiBase, offerId]);
+  }, [apiBase, shopId, offerId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,11 +125,11 @@ function AddManifestPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await fetchWrapper.put(`${apiBase}/offers/${offerId}/manifests`, {
+      await fetchWrapper.put(`${apiBase}/shops/${shopId}/offers/${offerId}/manifests`, {
         manifests: [{ sku: selectedProduct.variantId, qty: qtyNum }],
       });
       // Redirect to offer detail on success
-      window.location.href = `/offers/${offerId}`;
+      window.location.href = `/shop/${shopId}/offers/${offerId}`;
     } catch (err: any) {
       setError(err?.error || 'Failed to add manifest');
       setSubmitting(false);

@@ -100,15 +100,17 @@ function NewOfferPage() {
   const [offerName, setOfferName] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
 
-  const apiBase = document.getElementById('offer-new-root')?.dataset.apiBase || '/api';
+  const rootEl = document.getElementById('offer-new-root');
+  const apiBase = rootEl?.dataset.apiBase || '/api';
+  const shopId = rootEl?.dataset.shopId;
 
   useEffect(() => {
     const loadData = async () => {
       try {
         // Load available deal products and existing offers in parallel
         const [productsData, offersData] = await Promise.all([
-          fetchWrapper.get(`${apiBase}/shopify/products?type=deal`),
-          fetchWrapper.get(`${apiBase}/offers`),
+          fetchWrapper.get(`${apiBase}/shops/${shopId}/shopify/products?type=deal`),
+          fetchWrapper.get(`${apiBase}/shops/${shopId}/offers`),
         ]);
         setProducts(productsData);
         setExistingVariantIds(
@@ -124,7 +126,7 @@ function NewOfferPage() {
       }
     };
     loadData();
-  }, [apiBase]);
+  }, [apiBase, shopId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,13 +134,13 @@ function NewOfferPage() {
 
     setSubmitting(true);
     try {
-      await fetchWrapper.post(`${apiBase}/offers`, {
+      await fetchWrapper.post(`${apiBase}/shops/${shopId}/offers`, {
         offer_name: offerName.trim(),
         offer_variant_id: selectedProduct.variantId,
         offer_product_name: selectedProduct.productName,
       });
       // Redirect to offers list on success
-      window.location.href = '/offers';
+      window.location.href = `/shop/${shopId}/offers`;
     } catch (err: any) {
       setError(err?.error || 'Failed to create offer');
       setSubmitting(false);
@@ -222,7 +224,7 @@ function NewOfferPage() {
           <Button type="submit" disabled={!isValid || submitting}>
             {submitting ? 'Creating...' : 'Create Offer'}
           </Button>
-          <Button type="button" variant="outline" onClick={() => (window.location.href = '/offers')}>
+          <Button type="button" variant="outline" onClick={() => (window.location.href = `/shop/${shopId}/offers`)}>
             Cancel
           </Button>
         </div>

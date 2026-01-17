@@ -4,15 +4,31 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\ShopifyShop;
+use App\Services\Shopify\ShopifyClient;
 use App\Services\Shopify\ShopifyProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ShopifyController extends Controller
 {
-    public function __construct(
-        private ShopifyProductService $productService
-    ) {}
+    /**
+     * Get the shop from the request (set by shop.access middleware).
+     */
+    private function getShop(Request $request): ShopifyShop
+    {
+        return $request->attributes->get('shop');
+    }
+
+    /**
+     * Create a ShopifyProductService for the current shop.
+     */
+    private function makeProductService(Request $request): ShopifyProductService
+    {
+        $shop = $this->getShop($request);
+        $client = new ShopifyClient($shop);
+        return new ShopifyProductService($client);
+    }
 
     /**
      * Get Shopify products by type (deal or manifest-item)
@@ -26,7 +42,8 @@ class ShopifyController extends Controller
         }
 
         try {
-            $products = $this->productService->loadProducts($type);
+            $productService = $this->makeProductService($request);
+            $products = $productService->loadProducts($type);
             return response()->json($products);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -45,7 +62,8 @@ class ShopifyController extends Controller
         }
 
         try {
-            $data = $this->productService->getProductDataByVariantIds($variantIds);
+            $productService = $this->makeProductService($request);
+            $data = $productService->getProductDataByVariantIds($variantIds);
             return response()->json($data);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -63,7 +81,8 @@ class ShopifyController extends Controller
         ]);
 
         try {
-            $this->productService->setInventoryQuantity(
+            $productService = $this->makeProductService($request);
+            $productService->setInventoryQuantity(
                 $validated['variant_id'],
                 (int) $validated['quantity']
             );

@@ -63,12 +63,13 @@ function ShopifyManifestsPage() {
 
   const root = document.getElementById('offer-manifests-root');
   const offerId = root?.dataset.offerId;
+  const shopId = root?.dataset.shopId;
   const apiBase = root?.dataset.apiBase || '/api';
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const ordersData = await fetchWrapper.get(`${apiBase}/offers/${offerId}/orders`);
+        const ordersData = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}/orders`);
         setData(ordersData);
       } catch (err: any) {
         console.error('Failed to load data:', err);
@@ -78,7 +79,7 @@ function ShopifyManifestsPage() {
       }
     };
     loadData();
-  }, [apiBase, offerId]);
+  }, [apiBase, shopId, offerId]);
 
   if (loading) {
     return (
@@ -96,7 +97,7 @@ function ShopifyManifestsPage() {
         <div className="text-center py-8 text-destructive">{error || 'Failed to load orders'}</div>
         <div className="mt-4">
           <Button variant="outline" asChild>
-            <a href={`/offers/${offerId}`}>← Back to Offer Details</a>
+            <a href={`/shop/${shopId}/offers/${offerId}`}>← Back to Offer Details</a>
           </Button>
         </div>
       </Container>
@@ -109,7 +110,7 @@ function ShopifyManifestsPage() {
 
       <div className="mb-6">
         <Button variant="outline" asChild>
-          <a href={`/offers/${offerId}`}>← Back to Offer Details</a>
+          <a href={`/shop/${shopId}/offers/${offerId}`}>← Back to Offer Details</a>
         </Button>
       </div>
 

@@ -69,26 +69,28 @@ function OfferListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const apiBase = document.getElementById('offers-root')?.dataset.apiBase || '/api';
+  const rootEl = document.getElementById('offers-root');
+  const apiBase = rootEl?.dataset.apiBase || '/api';
+  const shopId = rootEl?.dataset.shopId;
 
   const fetchOffers = useCallback(async () => {
     try {
-      const data = await fetchWrapper.get(`${apiBase}/offers`);
+      const data = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers`);
       setOffers(data);
     } catch (err) {
       setError('Failed to load offers');
       console.error(err);
     }
-  }, [apiBase]);
+  }, [apiBase, shopId]);
 
   const fetchShopifyData = useCallback(async () => {
     try {
-      const data = await fetchWrapper.get(`${apiBase}/shopify/products?type=deal`);
+      const data = await fetchWrapper.get(`${apiBase}/shops/${shopId}/shopify/products?type=deal`);
       setShopifyData(data);
     } catch (err) {
       console.error('Failed to load Shopify data:', err);
     }
-  }, [apiBase]);
+  }, [apiBase, shopId]);
 
   useEffect(() => {
     Promise.all([fetchOffers(), fetchShopifyData()]).finally(() => setLoading(false));
@@ -100,7 +102,7 @@ function OfferListPage() {
     }
     
     try {
-      await fetchWrapper.delete(`${apiBase}/offers/${id}`, {});
+      await fetchWrapper.delete(`${apiBase}/shops/${shopId}/offers/${id}`, {});
       fetchOffers();
     } catch (err: any) {
       alert(err?.error || 'Failed to delete offer');
@@ -154,7 +156,7 @@ function OfferListPage() {
       <MainTitle>Offers</MainTitle>
       <div className="mb-4">
         <Button asChild>
-          <a href="/offers/new">Create New Offer</a>
+          <a href={`/shop/${shopId}/offers/new`}>Create New Offer</a>
         </Button>
       </div>
       <div className="rounded-md border">
@@ -182,7 +184,7 @@ function OfferListPage() {
                   <TableCell className="font-mono text-sm">{offer.offer_id}</TableCell>
                   <TableCell>
                     <a 
-                      href={`/offers/${offer.offer_id}`}
+                      href={`/shop/${shopId}/offers/${offer.offer_id}`}
                       className="hover:underline font-medium"
                     >
                       {offer.offer_name}

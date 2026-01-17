@@ -1,335 +1,281 @@
-# K-1 Flow Database Schema
+# UC Laravel Database Schema
 
 ## Overview
 
-K1 Flow uses a relational database to track Schedule K-1 forms and related tax information. This document describes the database schema and relationships.
+UC Laravel is a multi-tenant application for managing wine offers with Shopify integration. The system supports multiple Shopify stores with granular user access control.
 
 ## Entity Relationship Diagram
 
 ```
 ┌─────────────────┐
-│  k1_companies   │
+│      users      │
 │─────────────────│
 │ id (PK)         │
-│ name            │
-│ ein             │
-│ entity_type     │
-│ address         │
-│ city, state, zip│
+│ email           │
+│ password        │
+│ alias           │
+│ is_admin        │
+│ last_login_at   │
 └────────┬────────┘
          │
-         │ 1:many
+         │ many:many via user_shop_accesses
          ▼
-┌─────────────────┐      ┌───────────────────────┐
-│    k1_forms     │      │  ownership_interests  │
-│─────────────────│      │───────────────────────│
-│ id (PK)         │      │ id (PK)               │
-│ company_id (FK) │      │ owner_company_id (FK) │
-│ tax_year        │      │ owned_company_id (FK) │
-│ [K-1 fields]    │      │ ownership_percentage  │
-└───────┬─────────┘      │ inception_basis_*     │
-        │                └───────────┬───────────┘
-        │ 1:many                     │
-        ▼                            │ 1:many
-┌──────────────────┐                 ▼
-│k1_income_sources │      ┌───────────────────────┐
-│──────────────────│      │    outside_basis      │
-│ k1_form_id (FK)  │      │───────────────────────│
-│ income_type      │      │ ownership_interest_id │
-│ amount           │      │ tax_year              │
-└──────────────────┘      │ beginning_ob          │
-                          │ ending_ob             │
-                          └───────────┬───────────┘
-                                      │
-                                      │ 1:many
-                                      ▼
-                          ┌───────────────────────┐
-                          │   ob_adjustments      │
-                          │───────────────────────│
-                          │ outside_basis_id (FK) │
-                          │ adjustment_category   │
-                          │ adjustment_type_code  │
-                          │ amount                │
-                          │ document_*            │
-                          └───────────────────────┘
+┌────────────────────────┐      ┌─────────────────────┐
+│  user_shop_accesses    │      │   shopify_shops     │
+│────────────────────────│      │─────────────────────│
+│ id (PK)                │      │ id (PK)             │
+│ user_id (FK)           │◄────►│ name                │
+│ shopify_shop_id (FK)   │      │ shop_domain         │
+│ access_level           │      │ admin_api_token     │
+└────────────────────────┘      │ webhook_secret      │
+                                └──────────┬──────────┘
+                                           │
+                                           │ 1:many
+                                           ▼
+                                ┌─────────────────────┐
+                                │      v3_offer       │
+                                │─────────────────────│
+                                │ offer_id (PK)       │
+                                │ shop_id (FK)        │
+                                │ offer_name          │
+                                │ offer_variant_id    │
+                                │ offer_product_name  │
+                                └──────────┬──────────┘
+                                           │
+                                           │ 1:many
+                                           ▼
+                                ┌─────────────────────┐
+                                │  v3_offer_manifest  │
+                                │─────────────────────│
+                                │ m_id (PK)           │
+                                │ offer_id (FK)       │
+                                │ mf_variant          │
+                                │ assignee_id         │
+                                │ assignment_ordering │
+                                └─────────────────────┘
 ```
 
-## Tables
+## Core Tables
 
-### k1_companies
-Stores information about partnerships, S-corps, and other pass-through entities that issue K-1 forms.
+### users
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | bigint | Primary key |
-| name | varchar(255) | Company name |
-| ein | varchar(20) | Employer Identification Number |
-| entity_type | varchar(50) | e.g., Partnership, S-Corp, LLC |
-| address | varchar(255) | Street address |
-| city | varchar(100) | City |
-| state | varchar(2) | State code |
-| zip | varchar(20) | ZIP code |
-| notes | text | Additional notes |
+Stores application users with authentication and admin status.
 
-### k1_forms
-Stores Schedule K-1 forms with all IRS-defined fields from Parts I, II, and III.
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| id | bigint (PK) | No | Auto-increment primary key |
+| email | varchar(50) | No | Unique email address |
+| email_verified_at | timestamp | Yes | Email verification timestamp |
+| password | varchar(100) | Yes | Hashed password |
+| alias | varchar(50) | Yes | Display name |
+| is_admin | boolean | No | Admin access flag (default: false) |
+| last_login_at | timestamp | Yes | Last login timestamp |
+| remember_token | varchar(100) | Yes | Laravel remember token |
+| created_at | timestamp | Yes | Creation timestamp |
+| updated_at | timestamp | Yes | Update timestamp |
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | bigint | Primary key |
-| company_id | bigint | FK to k1_companies |
-| tax_year | int | Tax year (e.g., 2024) |
-| form_file_path | varchar | Path to uploaded PDF |
-| form_file_name | varchar | Original filename |
-| partnership_* | various | Part I fields |
-| partner_* | various | Part II fields |
-| share_of_* | decimal(8,4) | Ownership percentages |
-| *_liabilities | decimal(16,2) | Box K liability amounts |
-| *_capital_account | decimal(16,2) | Box L capital account |
-| box_1 through box_22 | various | Part III income/deduction items |
+**Indexes:**
+- Primary key on `id`
+- Unique constraint on `email`
 
-### k1_income_sources
-Categorizes income by type for loss limitation purposes.
+**Notes:**
+- User ID 1 is always treated as admin regardless of `is_admin` flag
+- Admin users can access `/admin/*` routes for user and store management
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | bigint | Primary key |
-| k1_form_id | bigint | FK to k1_forms |
-| income_type | enum | passive, non_passive, capital, trade_or_business_461l |
-| description | varchar | Description |
-| amount | decimal(16,2) | Amount |
-| k1_box_reference | varchar | Reference to K-1 box (e.g., "Box 1") |
+### shopify_shops
 
-### k1_outside_basis → outside_basis
-Tracks partner's outside basis in the partnership interest, now linked to ownership_interests with tax_year.
+Stores Shopify store configurations with API credentials.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | bigint | Primary key |
-| ownership_interest_id | bigint | FK to ownership_interests |
-| tax_year | int | Tax year this basis record applies to |
-| beginning_ob | decimal(16,2) | Beginning of year OB (auto-calculated from prior year) |
-| ending_ob | decimal(16,2) | Manual override for End of year OB (if null, calculated dynamically) |
-| notes | text | Additional notes |
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| id | bigint unsigned (PK) | No | Auto-increment primary key |
+| name | varchar(255) | No | Display name for the store |
+| shop_domain | varchar(255) | No | Shopify domain (e.g., mystore.myshopify.com) |
+| app_name | varchar(1024) | Yes | Shopify app name |
+| admin_api_token | varchar(1024) | Yes | Shopify Admin API token |
+| api_version | varchar(1024) | No | API version (default: 2025-01) |
+| api_key | varchar(1024) | Yes | Shopify API key |
+| api_secret_key | varchar(1024) | Yes | Shopify API secret key |
+| webhook_version | varchar(1024) | No | Webhook API version (default: 2025-01) |
+| webhook_secret | varchar(1024) | Yes | HMAC secret for webhook verification |
+| is_active | boolean | No | Whether shop is active (default: true) |
+| created_at | timestamp | Yes | Creation timestamp |
+| updated_at | timestamp | Yes | Update timestamp |
 
-### k1_ob_adjustments → ob_adjustments
-CPA work product for annual basis adjustments with predefined adjustment types.
+**Indexes:**
+- Primary key on `id`
+- Unique constraint on `shop_domain`
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | bigint | Primary key |
-| outside_basis_id | bigint | FK to outside_basis |
-| adjustment_category | enum | 'increase' or 'decrease' |
-| adjustment_type_code | varchar(50) | Predefined type code (see below) |
-| adjustment_type | varchar(100) | Custom description for 'other' types |
-| amount | decimal(16,2) | Adjustment amount |
-| description | text | Additional details |
-| document_path | varchar | Path to supporting document |
-| document_name | varchar | Original filename of document |
-| sort_order | int | Display order |
+**Notes:**
+- Sensitive fields (`admin_api_token`, `api_key`, `api_secret_key`, `webhook_secret`) are hidden from JSON serialization
+- `shop_domain` is used to match incoming webhooks via X-Shopify-Shop-Domain header
 
-**Predefined Increase Type Codes:**
-- `cash_contribution` - Cash contributions
-- `property_contribution` - Property contributions (FMV)
-- `increase_liabilities` - Increase in share of partnership liabilities
-- `assumption_personal_liabilities` - Partnership assumption of personal liabilities
-- `share_income` - Share of partnership income/gain
-- `tax_exempt_income` - Tax-exempt income
-- `excess_depletion` - Excess depletion (oil & gas)
-- `other_increase` - Other increase (use adjustment_type for description)
+### user_shop_accesses
 
-**Predefined Decrease Type Codes:**
-- `cash_distribution` - Cash distributions
-- `property_distribution` - Property distributions (basis)
-- `decrease_liabilities` - Decrease in share of partnership liabilities
-- `personal_liabilities_assumed` - Personal liabilities assumed by partnership
-- `share_losses` - Share of partnership losses
-- `nondeductible_noncapital` - Nondeductible expenses (not capitalized)
-- `section_179` - Section 179 deduction
-- `depletion_deduction` - Oil & gas depletion deduction
-- `other_decrease` - Other decrease (use adjustment_type for description)
+Pivot table linking users to Shopify shops with access levels.
 
-### k1_loss_carryforwards → loss_carryforwards
-Tracks suspended losses by type and character, now linked to ownership_interests.
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| id | bigint unsigned (PK) | No | Auto-increment primary key |
+| user_id | bigint | No | FK to users.id |
+| shopify_shop_id | bigint unsigned | No | FK to shopify_shops.id |
+| access_level | enum | No | 'read-only' or 'read-write' |
+| created_at | timestamp | Yes | Creation timestamp |
+| updated_at | timestamp | Yes | Update timestamp |
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | bigint | Primary key |
-| ownership_interest_id | bigint | FK to ownership_interests |
-| origin_year | int | Year loss originated |
-| carryforward_type | enum | at_risk, passive, excess_business_loss, nol |
-| source_ebl_year | int | For NOL type: the year the EBL originated (EBL Year N → NOL Year N+1) |
-| loss_character | varchar | Loss character: ORD (Ordinary) or CAP (Capital) |
-| original_amount | decimal(16,2) | Original loss amount |
-| remaining_amount | decimal(16,2) | Remaining suspended amount |
-| notes | text | Additional notes |
+**Indexes:**
+- Primary key on `id`
+- Unique constraint on `(user_id, shopify_shop_id)`
 
-### k1_ownership → ownership_interests
-Tracks ownership relationships for tiered structures, with inception basis info.
+**Foreign Keys:**
+- `user_id` references `users.id` (ON DELETE CASCADE)
+- `shopify_shop_id` references `shopify_shops.id` (ON DELETE CASCADE)
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | bigint | Primary key |
-| owner_company_id | bigint | FK to k1_companies (owner), nullable for individual |
-| owned_company_id | bigint | FK to k1_companies (owned entity) |
-| ownership_percentage | decimal(14,11) | Percentage ownership with high precision |
-| effective_from | date | Start of ownership period |
-| effective_to | date | End of ownership period (null = current) |
-| ownership_class | varchar | e.g., Class A, Common, Preferred |
-| inception_date | date | Full date the interest was acquired |
-| inception_basis_year | int | Year the interest was acquired (legacy, derived from inception_date) |
-| method_of_acquisition | varchar(50) | Method: purchase, gift, inheritance, compensation, contribution |
-| inheritance_date | date | Date of death for inherited interests |
-| cost_basis_inherited | decimal(16,2) | Stepped-up basis (FMV at death) for inheritance |
-| gift_date | date | Date of gift for gifted interests |
-| gift_donor_basis | decimal(16,2) | Donor's carryover basis for gifts |
-| gift_fmv_at_transfer | decimal(16,2) | FMV at time of gift |
-| contributed_cash_property | decimal(16,2) | Cash/property contribution |
-| purchase_price | decimal(16,2) | Purchase price if acquired |
-| gift_inheritance | decimal(16,2) | Basis from gift/inheritance (legacy) |
-| taxable_compensation | decimal(16,2) | Compensatory interest value |
-| inception_basis_total | decimal(16,2) | Total inception basis |
-| notes | text | Additional notes |
+**Access Levels:**
+- `read-only`: Can view offers and manifests but cannot modify
+- `read-write`: Full access to create, edit, and delete offers/manifests
 
-**Method of Acquisition Values:**
-- `purchase` - Acquired via purchase from another party
-- `gift` - Received as a gift (carryover basis rules apply)
-- `inheritance` - Inherited (stepped-up basis rules apply)
-- `compensation` - Received as taxable compensation (profits interest, carried interest)
-- `contribution` - Initial contribution of cash/property to partnership
+### v3_offer
 
-### loss_limitations
-Tracks loss limitation calculations under IRS rules, per ownership interest per year.
+Stores wine offer definitions linked to Shopify product variants.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | bigint | Primary key |
-| ownership_interest_id | bigint | FK to ownership_interests |
-| tax_year | int | Tax year |
-| capital_at_risk | decimal(16,2) | Form 6198 at-risk amount |
-| at_risk_deductible | decimal(16,2) | Deductible at-risk loss |
-| at_risk_carryover | decimal(16,2) | Suspended at-risk loss |
-| passive_activity_loss | decimal(16,2) | Form 8582 passive loss |
-| passive_loss_allowed | decimal(16,2) | Allowed passive loss |
-| passive_loss_carryover | decimal(16,2) | Suspended passive loss |
-| excess_business_loss | decimal(16,2) | Section 461(l) EBL |
-| excess_business_loss_carryover | decimal(16,2) | Suspended EBL (becomes NOL next year) |
-| nol_deduction_used | decimal(16,2) | NOL deduction used in current year |
-| nol_carryforward | decimal(16,2) | NOL carryforward remaining after current year |
-| nol_80_percent_limit | decimal(16,2) | 80% limitation for post-2017 NOLs |
-| notes | text | Additional notes |
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| offer_id | int (PK) | No | Auto-increment primary key |
+| shop_id | bigint unsigned | Yes | FK to shopify_shops.id |
+| offer_name | varchar(100) | No | Unique offer name |
+| offer_variant_id | varchar(100) | No | Shopify variant ID (GID format) |
+| offer_product_name | varchar(200) | No | Product display name |
 
-## Loss Limitation Ordering (IRS Rules)
+**Indexes:**
+- Primary key on `offer_id`
+- Unique constraint on `offer_name`
+- Unique constraint on `offer_variant_id`
 
-Losses flow through limitations in a specific order per IRS rules:
+**Foreign Keys:**
+- `shop_id` references `shopify_shops.id` (ON DELETE SET NULL)
 
-| Order | Limitation | Scope | Key References |
-|-------|-----------|-------|---------------|
-| 0 | Deductibility check | Transaction | Is it deductible at all? (hobby, personal use) |
-| 1 | Character & basket rules | Return-level | Capital loss limitations (Schedule D) |
-| 2 | Basis limitation | Per entity | §704(d) partnership; §1366(d) S corp |
-| 3 | At-risk limitation | Per activity | §465 (Form 6198) |
-| 4 | Passive activity loss | Per activity | §469 (Form 8582) |
-| 5 | Excess Business Loss | Aggregate | §461(l) (Form 461) |
-| 6 | NOL computation | Cross-year | §172 - EBL carryover becomes NOL |
-| 7 | 80% NOL limitation | Year of use | Post-2017 NOLs limited to 80% of taxable income |
+### v3_offer_manifest
 
-### EBL to NOL Conversion
-- Excess Business Loss (EBL) disallowed in Year N under §461(l)
-- This EBL carryover becomes an NOL carryforward starting Year N+1
-- Track with `carryforward_type = 'nol'` and `source_ebl_year = N`
+Stores individual bottle allocations within offers.
 
-## Foreign Key Relationships
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| m_id | bigint (PK) | No | Auto-increment primary key |
+| offer_id | bigint | No | FK to v3_offer.offer_id |
+| mf_variant | varchar(50) | No | Shopify variant ID for the bottle |
+| assignee_id | varchar(50) | Yes | Shopify order ID when assigned |
+| assignment_ordering | float | No | Priority order for allocation |
 
-All child tables cascade on delete from their parent:
-- k1_forms → k1_companies
-- k1_income_sources → k1_forms
-- ownership_interests → k1_companies (both owner and owned)
-- outside_basis → ownership_interests
-- ob_adjustments → outside_basis
-- loss_limitations → ownership_interests
-- loss_carryforwards → ownership_interests
+**Indexes:**
+- Primary key on `m_id`
+- Index on `(offer_id, assignment_ordering)` for efficient allocation queries
 
-## Money Field Convention
+**Notes:**
+- `assignee_id` is NULL for unallocated bottles
+- Lower `assignment_ordering` values get allocated first
+- Multiple manifest rows with same `mf_variant` represent multiple bottles
 
-All monetary amounts use `DECIMAL(16,2)` for precision:
-- 16 total digits, 2 decimal places
-- Supports values up to $99,999,999,999,999.99
-- Negative values allowed for losses
+### v3_order_to_variant
 
-## Date Handling Convention
+Links Shopify orders to variants for webhook processing.
 
-### Backend to Frontend Date Serialization
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| order_id | varchar(100) | No | Shopify order ID |
+| variant_id | varchar(100) | No | Shopify variant ID |
+| offer_id | int | Yes | FK to v3_offer.offer_id |
 
-Laravel models use the `SerializesDatesAsLocal` trait which serializes dates in `YYYY-MM-DD HH:mm:ss` format (e.g., `"2024-01-15 00:00:00"`). This avoids timezone shifting issues in JavaScript.
+**Indexes:**
+- Unique constraint on `(variant_id, order_id)`
 
-### HTML Date Input Compatibility
+**Notes:**
+- Created when orders are processed via webhook
+- Used to track which variants were purchased in each order
 
-HTML `<input type="date">` elements require dates in strict `YYYY-MM-DD` format. When populating date inputs from API data, use `DateHelper.toInputDate()` to convert:
+### v3_audit_log
 
-```typescript
-import { DateHelper } from '@/lib/DateHelper';
+Audit trail for system events.
 
-// In a React component:
-const [date, setDate] = useState('');
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| id | bigint (PK) | No | Auto-increment primary key |
+| event_ts | timestamp | No | Event timestamp (default: now) |
+| event_name | varchar(50) | No | Event type identifier |
+| event_ext | mediumtext | Yes | JSON event details |
+| event_userid | bigint | Yes | User who triggered event |
+| offer_id | int | Yes | Related offer ID |
+| order_id | bigint unsigned | Yes | Related Shopify order ID |
+| time_taken_ms | int | Yes | Operation duration in ms |
 
-useEffect(() => {
-  // Convert Laravel datetime to input format
-  setDate(DateHelper.toInputDate(apiData.inception_date));
-}, [apiData]);
-```
+## Supporting Tables
 
-**Supported Input Formats:**
-- `YYYY-MM-DD` (returned as-is)
-- `YYYY-MM-DD HH:mm:ss` (Laravel default)
-- `YYYY-MM-DD HH:mm:ss.SSS` (with milliseconds)
-- `YYYY-MM-DDTHH:mm:ss` (ISO 8601)
-- Various other formats via `parseDate()` fallback
+### sessions
 
-**Unit Tests:** See `tests-ts/DateHelper.test.ts` for comprehensive test coverage.
+Laravel session storage for authenticated users.
 
-## Basis Walk Feature
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| id | varchar(255) (PK) | No | Session ID |
+| user_id | bigint unsigned | Yes | FK to users.id |
+| ip_address | varchar(45) | Yes | Client IP |
+| user_agent | text | Yes | Browser user agent |
+| payload | longtext | No | Serialized session data |
+| last_activity | int | No | Unix timestamp |
 
-The Basis Walk provides a year-over-year view of outside basis tracking:
+### order_lock
 
-### Workflow
+Prevents concurrent processing of the same order.
 
-1. **Add New Ownership Interest**
-   - User creates ownership interest with inception basis information
-   - System generates basis walk table starting from inception year
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| order_id | varchar(100) (PK) | No | Shopify order ID |
+| locked_at | datetime | No | Lock acquisition time |
 
-2. **Basis Walk Table**
-   - Shows all years from inception to current
-   - Columns: Tax Year, Starting Basis, Adjustments, Ending Basis
-   - Starting basis = prior year's ending basis (or inception basis for first year)
-   - Adjustments = sum of increases minus decreases
-   - Ending basis = Starting basis + Adjustments (unless manually overridden)
+### shopify_product_variant
 
-3. **Yearly Adjustment Entry**
-   - User clicks on adjustments column to view/edit details
-   - Predefined adjustment types with dropdown selection
-   - Support for custom "other" adjustments with description
-   - File attachment support for documentation
+Cache of Shopify product variant data.
 
-### Predefined Adjustment Types
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| variantId | varchar(191) (PK) | No | Shopify variant GID |
+| productId | varchar(191) | No | Shopify product GID |
+| productName | varchar(191) | No | Product title |
+| variantName | varchar(191) | No | Variant title |
+| variantPrice | varchar(191) | Yes | Price |
+| variantCompareAtPrice | varchar(191) | Yes | Compare-at price |
+| variantInventoryQuantity | int | No | Current inventory |
+| variantSku | varchar(191) | No | SKU |
+| variantWeight | varchar(191) | Yes | Weight |
 
-**Increases:**
-- Cash contributions
-- Property contributions (FMV)
-- Increase in share of partnership liabilities
-- Partnership assumption of personal liabilities
-- Share of partnership income/gain
-- Tax-exempt income
-- Excess depletion (oil & gas)
-- Other increase
+## Legacy/Reference Tables
 
-**Decreases:**
-- Cash distributions
-- Property distributions (basis)
-- Decrease in share of partnership liabilities
-- Personal liabilities assumed by partnership
-- Share of partnership losses
-- Nondeductible expenses (not capitalized)
-- Section 179 deduction
-- Oil & gas depletion deduction
-- Other decrease
+The database also contains several legacy tables used for historical data and analytics:
+
+- `item_detail` - Wine product catalog
+- `item_sku` - SKU-level inventory and pricing
+- `user_list` - Customer data
+- `order_list` - Historical orders
+- `computed_buyer_varietals` - Aggregated buyer preferences
+- `customer_list_*` - Customer export snapshots
+- `member_list_export_*` - Member export snapshots
+- `new_customer_data_*` - New customer data imports
+- `old_order_data_*` - Historical order data
+
+## Access Control Model
+
+### Admin Access
+- Users with `is_admin = true` or `id = 1` have admin access
+- Admins can access `/admin/users` and `/admin/stores` routes
+- Admins can manage all users and shops
+
+### Shop Access
+- Regular users must have an entry in `user_shop_accesses` to access a shop
+- `read-only` access allows viewing offers and manifests
+- `read-write` access allows full CRUD operations
+- Shop access is enforced by `EnsureShopAccess` middleware
+
+### Route Middleware
+- `admin` - Requires admin status
+- `shop.access:read` - Requires at least read-only access to shop
+- `shop.access:write` - Requires read-write access to shop

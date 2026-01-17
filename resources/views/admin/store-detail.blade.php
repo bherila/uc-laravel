@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
-<div id="offer-new-root" 
+<div id="admin-store-detail-root" 
      data-api-base="{{ url('/api') }}"
-     data-shop-id="{{ $shopId }}">
+     data-store-id="{{ $storeId }}">
 </div>
 @endsection
 
 @push('head')
-@vite('resources/js/offer-new.tsx')
+@vite('resources/js/admin-store-detail.tsx')
 @endpush

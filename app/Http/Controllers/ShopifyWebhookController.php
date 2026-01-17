@@ -5,16 +5,18 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\ShopifyShop;
+use App\Services\Shopify\ShopifyClient;
 use App\Services\Shopify\ShopifyOrderProcessingService;
+use App\Services\Shopify\ShopifyOrderService;
+use App\Services\Shopify\ShopifyOrderEditService;
+use App\Services\Shopify\ShopifyFulfillmentService;
+use App\Services\Shopify\ShopifyProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ShopifyWebhookController extends Controller
 {
-    public function __construct(
-        private ShopifyOrderProcessingService $orderProcessingService
-    ) {}
-
     /**
      * Handle Shopify webhook (orders/paid, orders/cancelled, order_edit, etc.)
      */
@@ -26,11 +28,31 @@ class ShopifyWebhookController extends Controller
 
         try {
             $shopDomain = $request->header('X-Shopify-Shop-Domain');
+            
             AuditLog::create([
                 'source' => 'shopify_webhook',
                 'message' => "Webhook received from {$shopDomain}",
                 'payload' => $webhookData,
             ]);
+
+            // Find the shop by domain
+            $shop = ShopifyShop::where('shop_domain', $shopDomain)->first();
+            
+            if (!$shop) {
+                $this->log("Shop not found for domain: {$shopDomain}", null);
+                return response()->json(['error' => 'Shop not found'], 404);
+            }
+
+            if (!$shop->is_active) {
+                $this->log("Shop is inactive: {$shopDomain}", null);
+                return response()->json(['error' => 'Shop is inactive'], 403);
+            }
+
+            // Verify HMAC with shop-specific secret
+            if (!$this->verifyHmac($request, $shop)) {
+                $this->log("HMAC verification failed for shop: {$shopDomain}", null);
+                return response()->json(['error' => 'HMAC verification failed'], 401);
+            }
 
             // Handle order_edit webhook
             if (isset($webhookData['order_edit'])) {
@@ -58,8 +80,9 @@ class ShopifyWebhookController extends Controller
 
             $this->log('About to process webhook: ' . json_encode($webhookData), $orderId);
 
-            // Process the order
-            $this->orderProcessingService->processOrder($adminGraphqlApiId);
+            // Create shop-specific services
+            $orderProcessingService = $this->createOrderProcessingService($shop);
+            $orderProcessingService->processOrder($adminGraphqlApiId);
 
             return response()->json(null, 200);
         } catch (\Exception $e) {
@@ -71,12 +94,32 @@ class ShopifyWebhookController extends Controller
     }
 
     /**
-     * Verify Shopify webhook HMAC signature
+     * Create ShopifyOrderProcessingService for a specific shop.
      */
-    public function verifyHmac(Request $request): bool
+    private function createOrderProcessingService(ShopifyShop $shop): ShopifyOrderProcessingService
+    {
+        $client = new ShopifyClient($shop);
+        $orderService = new ShopifyOrderService($client);
+        $orderEditService = new ShopifyOrderEditService($client);
+        $fulfillmentService = new ShopifyFulfillmentService($client);
+        $productService = new ShopifyProductService($client);
+
+        return new ShopifyOrderProcessingService(
+            $client,
+            $orderService,
+            $orderEditService,
+            $fulfillmentService,
+            $productService
+        );
+    }
+
+    /**
+     * Verify Shopify webhook HMAC signature using shop-specific secret.
+     */
+    public function verifyHmac(Request $request, ShopifyShop $shop): bool
     {
         $hmacHeader = $request->header('X-Shopify-Hmac-SHA256');
-        $secret = config('services.shopify.webhook_secret');
+        $secret = $shop->webhook_secret;
 
         if (!$hmacHeader || !$secret) {
             return false;

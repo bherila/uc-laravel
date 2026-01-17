@@ -3,6 +3,7 @@
 @section('content')
 <div id="offer-add-manifest-root" 
      data-api-base="{{ url('/api') }}" 
+     data-shop-id="{{ $shopId }}"
      data-offer-id="{{ $offerId }}">
 </div>
 @endsection

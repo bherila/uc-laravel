@@ -4,35 +4,58 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\ShopifyShop;
 use App\Services\Offer\OfferService;
+use App\Services\Shopify\ShopifyClient;
+use App\Services\Shopify\ShopifyProductService;
+use App\Services\Shopify\ShopifyOrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class OfferController extends Controller
 {
-    public function __construct(
-        private OfferService $offerService
-    ) {}
+    /**
+     * Get the shop from the request (set by shop.access middleware).
+     */
+    private function getShop(Request $request): ShopifyShop
+    {
+        return $request->attributes->get('shop');
+    }
 
     /**
-     * List all offers with Shopify product data
+     * Create an OfferService for the current shop.
      */
-    public function index(): JsonResponse
+    private function makeOfferService(Request $request): OfferService
     {
-        $result = $this->offerService->loadOfferList();
+        $shop = $this->getShop($request);
+        $client = new ShopifyClient($shop);
+        $productService = new ShopifyProductService($client);
+        $orderService = new ShopifyOrderService($client);
+        return new OfferService($productService, $orderService);
+    }
+
+    /**
+     * List all offers with Shopify product data (shop-scoped)
+     */
+    public function index(Request $request, int $shop): JsonResponse
+    {
+        $offerService = $this->makeOfferService($request);
+        $result = $offerService->loadOfferList($shop);
         return response()->json($result['offerListItems']);
     }
 
     /**
      * Get a single offer with optional detail mode
      */
-    public function show(Request $request, int $offer): JsonResponse
+    public function show(Request $request, int $shop, int $offer): JsonResponse
     {
+        $offerService = $this->makeOfferService($request);
+
         // Use detailed view if 'detail' query param is set
         if ($request->query('detail')) {
-            $result = $this->offerService->getOfferDetail($offer);
+            $result = $offerService->getOfferDetail($offer);
         } else {
-            $result = $this->offerService->getOffer($offer);
+            $result = $offerService->getOffer($offer);
         }
 
         if (!$result) {
@@ -45,7 +68,7 @@ class OfferController extends Controller
     /**
      * Create a new offer
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, int $shop): JsonResponse
     {
         $validated = $request->validate([
             'offer_name' => 'required|string|max:100',
@@ -54,10 +77,12 @@ class OfferController extends Controller
         ]);
 
         try {
-            $offer = $this->offerService->createOffer(
+            $offerService = $this->makeOfferService($request);
+            $offer = $offerService->createOffer(
                 $validated['offer_name'],
                 $validated['offer_variant_id'],
-                $validated['offer_product_name']
+                $validated['offer_product_name'],
+                $shop
             );
 
             return response()->json([
@@ -72,10 +97,11 @@ class OfferController extends Controller
     /**
      * Delete an offer
      */
-    public function destroy(int $offer): JsonResponse
+    public function destroy(Request $request, int $shop, int $offer): JsonResponse
     {
         try {
-            $this->offerService->deleteOffer($offer);
+            $offerService = $this->makeOfferService($request);
+            $offerService->deleteOffer($offer);
             return response()->json(['message' => 'Offer deleted']);
         } catch (\RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
@@ -85,10 +111,11 @@ class OfferController extends Controller
     /**
      * Get and update offer metafields
      */
-    public function metafields(int $offer): JsonResponse
+    public function metafields(Request $request, int $shop, int $offer): JsonResponse
     {
         try {
-            $metafields = $this->offerService->updateOfferMetafields($offer);
+            $offerService = $this->makeOfferService($request);
+            $metafields = $offerService->updateOfferMetafields($offer);
 
             if (!$metafields) {
                 return response()->json(['error' => 'Offer not found or missing product data'], 404);
@@ -103,10 +130,11 @@ class OfferController extends Controller
     /**
      * Get order manifests for an offer
      */
-    public function orders(int $offer): JsonResponse
+    public function orders(Request $request, int $shop, int $offer): JsonResponse
     {
         try {
-            $orders = $this->offerService->getOfferOrders($offer);
+            $offerService = $this->makeOfferService($request);
+            $orders = $offerService->getOfferOrders($offer);
 
             if (!$orders) {
                 return response()->json(['error' => 'Offer not found'], 404);

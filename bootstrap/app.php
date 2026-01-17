@@ -17,6 +17,20 @@ return Application::configure(basePath: dirname(__DIR__))
             // Redirect unauthenticated users to login with their intended URL
             return route('login', ['redirect' => $request->fullUrl()]);
         });
+
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'shop.access' => \App\Http\Middleware\EnsureShopAccess::class,
+        ]);
+
+        $middleware->group('api', [
+            \Illuminate\Cookie\Middleware\EncryptCookies::class,
+            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+            \Illuminate\Session\Middleware\StartSession::class,
+            \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

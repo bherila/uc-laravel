@@ -21,6 +21,7 @@ function MetafieldsPage() {
 
   const root = document.getElementById('offer-metafields-root');
   const offerId = root?.dataset.offerId;
+  const shopId = root?.dataset.shopId;
   const apiBase = root?.dataset.apiBase || '/api';
 
   useEffect(() => {
@@ -28,8 +29,8 @@ function MetafieldsPage() {
       try {
         // Load offer details and update metafields
         const [offerData, metafieldsData] = await Promise.all([
-          fetchWrapper.get(`${apiBase}/offers/${offerId}`),
-          fetchWrapper.get(`${apiBase}/offers/${offerId}/metafields`),
+          fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}`),
+          fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}/metafields`),
         ]);
         setOfferName(offerData.offer_name);
         setMetafields(metafieldsData);
@@ -41,7 +42,7 @@ function MetafieldsPage() {
       }
     };
     loadData();
-  }, [apiBase, offerId]);
+  }, [apiBase, shopId, offerId]);
 
   if (loading) {
     return (
@@ -59,7 +60,7 @@ function MetafieldsPage() {
         <div className="text-center py-8 text-destructive">{error}</div>
         <div className="mt-4">
           <Button variant="outline" asChild>
-            <a href={`/offers/${offerId}`}>← Back to Offer Details</a>
+            <a href={`/shop/${shopId}/offers/${offerId}`}>← Back to Offer Details</a>
           </Button>
         </div>
       </Container>
@@ -72,7 +73,7 @@ function MetafieldsPage() {
 
       <div className="mb-6">
         <Button variant="outline" asChild>
-          <a href={`/offers/${offerId}`}>← Back to Offer Details</a>
+          <a href={`/shop/${shopId}/offers/${offerId}`}>← Back to Offer Details</a>
         </Button>
       </div>
 

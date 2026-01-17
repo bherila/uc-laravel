@@ -65,12 +65,13 @@ function ProfitabilityPage() {
 
   const root = document.getElementById('offer-profitability-root');
   const offerId = root?.dataset.offerId;
+  const shopId = root?.dataset.shopId;
   const apiBase = root?.dataset.apiBase || '/api';
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const data = await fetchWrapper.get(`${apiBase}/offers/${offerId}?detail=1`);
+        const data = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}?detail=1`);
         setOffer(data);
       } catch (err) {
         console.error('Failed to load data:', err);
@@ -80,7 +81,7 @@ function ProfitabilityPage() {
       }
     };
     loadData();
-  }, [apiBase, offerId]);
+  }, [apiBase, shopId, offerId]);
 
   const offerPrice = useMemo(() => {
     return parseFloat(offer?.offerProductData?.priceRange?.maxVariantPrice?.amount ?? '0');
@@ -226,7 +227,7 @@ function ProfitabilityPage() {
 
       <div className="mb-6">
         <Button variant="outline" asChild>
-          <a href={`/offers/${offerId}`}>← Back to Offer Details</a>
+          <a href={`/shop/${shopId}/offers/${offerId}`}>← Back to Offer Details</a>
         </Button>
       </div>
 
