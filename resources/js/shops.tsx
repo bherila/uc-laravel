@@ -41,6 +41,11 @@ function ShopsPage() {
     is_active: true 
   });
 
+  // Edit store state
+  const [editingDialogOpen, setEditingDialogOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editingStore, setEditingStore] = useState<any | null>(null);
+
   const rootEl = document.getElementById('shops-root');
   const apiBase = rootEl?.dataset.apiBase || '/api';
   const isAdmin = rootEl?.dataset.isAdmin === 'true';
@@ -83,6 +88,56 @@ function ShopsPage() {
     }
   };
 
+  const openEditDialog = async (id: number) => {
+    setEditingDialogOpen(true);
+    setEditingStore(null);
+    try {
+      const data = await fetchWrapper.get(`${apiBase}/admin/stores/${id}`);
+      setEditingStore({
+        id: data.id,
+        name: data.name || '',
+        shop_domain: data.shop_domain || '',
+        admin_api_token: data.admin_api_token || '',
+        api_version: data.api_version || '2025-01',
+        webhook_secret: data.webhook_secret || '',
+        is_active: data.is_active ?? true,
+        app_name: data.app_name || '',
+        api_key: data.api_key || '',
+        api_secret_key: data.api_secret_key || '',
+      });
+    } catch (err) {
+      console.error('Failed to load store for editing:', err);
+      alert('Failed to load store for editing');
+      setEditingDialogOpen(false);
+    }
+  };
+
+  const saveEditStore = async () => {
+    if (!editingStore || !editingStore.id) return;
+    setEditing(true);
+    try {
+      await fetchWrapper.put(`${apiBase}/admin/stores/${editingStore.id}`, {
+        name: editingStore.name,
+        shop_domain: editingStore.shop_domain,
+        app_name: editingStore.app_name || null,
+        admin_api_token: editingStore.admin_api_token || null,
+        api_version: editingStore.api_version,
+        api_key: editingStore.api_key || null,
+        api_secret_key: editingStore.api_secret_key || null,
+        webhook_version: editingStore.webhook_version || undefined,
+        webhook_secret: editingStore.webhook_secret || null,
+        is_active: editingStore.is_active,
+      });
+      setEditingDialogOpen(false);
+      fetchShops();
+    } catch (err: any) {
+      console.error('Failed to save store:', err);
+      alert(err?.error || 'Failed to save store');
+    } finally {
+      setEditing(false);
+    }
+  };
+
   const deleteStore = async (id: number) => {
     if (!confirm('Are you sure you want to delete this store? This cannot be undone.')) return;
     try {
@@ -121,6 +176,7 @@ function ShopsPage() {
       <div className="flex items-center justify-between mb-6">
         <MainTitle>Shops</MainTitle>
         {isAdmin && (
+          <>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
@@ -197,6 +253,84 @@ function ShopsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          <Dialog open={editingDialogOpen} onOpenChange={setEditingDialogOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Edit Store</DialogTitle>
+                <DialogDescription>Update store settings and API credentials.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {editingStore ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_name">Store Name</Label>
+                      <Input
+                        id="edit_name"
+                        value={editingStore.name}
+                        onChange={(e) => setEditingStore({ ...editingStore, name: e.target.value })}
+                        placeholder="My Store"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_shop_domain">Shop Domain</Label>
+                      <Input
+                        id="edit_shop_domain"
+                        value={editingStore.shop_domain}
+                        onChange={(e) => setEditingStore({ ...editingStore, shop_domain: e.target.value })}
+                        placeholder="my-store.myshopify.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_admin_api_token">Admin API Token</Label>
+                      <Input
+                        id="edit_admin_api_token"
+                        type="password"
+                        value={editingStore.admin_api_token}
+                        onChange={(e) => setEditingStore({ ...editingStore, admin_api_token: e.target.value })}
+                        placeholder="shpat_..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_api_version">API Version</Label>
+                      <Input
+                        id="edit_api_version"
+                        value={editingStore.api_version}
+                        onChange={(e) => setEditingStore({ ...editingStore, api_version: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_webhook_secret">Webhook Secret (optional)</Label>
+                      <Input
+                        id="edit_webhook_secret"
+                        type="password"
+                        value={editingStore.webhook_secret}
+                        onChange={(e) => setEditingStore({ ...editingStore, webhook_secret: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="edit_is_active"
+                        checked={!!editingStore.is_active}
+                        onChange={(e) => setEditingStore({ ...editingStore, is_active: e.target.checked })}
+                      />
+                      <Label htmlFor="edit_is_active">Active</Label>
+                    </div>
+                  </>
+                ) : (
+                  <div>Loading...</div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditingDialogOpen(false)}>Cancel</Button>
+                <Button onClick={saveEditStore} disabled={editing || !editingStore || !editingStore.name || !editingStore.shop_domain}>
+                  {editing ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          </>
         )}
       </div>
       
@@ -265,10 +399,8 @@ function ShopsPage() {
                     <div className="flex items-center justify-end gap-1">
                       {isAdmin && (
                         <>
-                          <Button variant="ghost" size="sm" asChild title="Edit Settings">
-                            <a href={`/admin/stores/${shop.id}`}>
-                              <Edit className="w-4 h-4" />
-                            </a>
+                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(shop.id)} title="Edit Settings">
+                            <Edit className="w-4 h-4" />
                           </Button>
                           <Button 
                             variant="ghost" 

@@ -66,7 +66,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('admin')->prefix('/admin')->group(function () {
         Route::get('/users', [AdminController::class, 'usersPage'])->name('admin.users');
         Route::get('/users/{id}', [AdminController::class, 'userDetailPage'])->name('admin.users.detail');
-        Route::get('/stores/{id}', [AdminController::class, 'storeDetailPage'])->name('admin.stores.detail');
+        // Store detail separate page removed; editing is handled inline in the Shops page modal.
     });
 
     // Legacy offer routes (redirect to shops)
