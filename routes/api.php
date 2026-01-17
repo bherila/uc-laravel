@@ -7,12 +7,17 @@ use App\Http\Controllers\OfferManifestController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\ShopifyWebhookController;
+use App\Http\Controllers\Auth\PasswordResetController;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
 */
+
+// Password Reset Routes
+Route::post('forgot-password', [PasswordResetController::class, 'sendResetCodeEmail']);
+Route::post('reset-password', [PasswordResetController::class, 'reset']);
 
 // Shops accessible to current user
 Route::middleware('auth')->get('shops', [ShopController::class, 'listAccessible']);
