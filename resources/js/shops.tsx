@@ -212,7 +212,8 @@ function ShopsPage() {
                   <Label htmlFor="admin_api_token">Admin API Token</Label>
                   <Input 
                     id="admin_api_token" 
-                    type="password"
+                    type="text"
+                    autoComplete="off"
                     value={newStore.admin_api_token} 
                     onChange={(e) => setNewStore({ ...newStore, admin_api_token: e.target.value })} 
                     placeholder="shpat_..."
@@ -220,17 +221,23 @@ function ShopsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="api_version">API Version</Label>
-                  <Input 
-                    id="api_version" 
-                    value={newStore.api_version} 
-                    onChange={(e) => setNewStore({ ...newStore, api_version: e.target.value })} 
-                  />
+                  <select
+                    id="api_version"
+                    className="w-full rounded-md border px-3 py-2"
+                    value={newStore.api_version}
+                    onChange={(e) => setNewStore({ ...newStore, api_version: e.target.value })}
+                  >
+                    <option value="2025-01">2025-01</option>
+                    <option value="2025-07">2025-07</option>
+                    <option value="2026-01">2026-01</option>
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="webhook_secret">Webhook Secret (optional)</Label>
                   <Input 
                     id="webhook_secret" 
-                    type="password"
+                    type="text"
+                    autoComplete="off"
                     value={newStore.webhook_secret} 
                     onChange={(e) => setNewStore({ ...newStore, webhook_secret: e.target.value })} 
                   />
@@ -283,27 +290,34 @@ function ShopsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_admin_api_token">Admin API Token</Label>
-                      <Input
-                        id="edit_admin_api_token"
-                        type="password"
-                        value={editingStore.admin_api_token}
-                        onChange={(e) => setEditingStore({ ...editingStore, admin_api_token: e.target.value })}
-                        placeholder="shpat_..."
-                      />
+                        <Input
+                          id="edit_admin_api_token"
+                          type="text"
+                          autoComplete="off"
+                          value={editingStore.admin_api_token}
+                          onChange={(e) => setEditingStore({ ...editingStore, admin_api_token: e.target.value })}
+                          placeholder="shpat_..."
+                        />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_api_version">API Version</Label>
-                      <Input
+                      <select
                         id="edit_api_version"
+                        className="w-full rounded-md border px-3 py-2"
                         value={editingStore.api_version}
                         onChange={(e) => setEditingStore({ ...editingStore, api_version: e.target.value })}
-                      />
+                      >
+                        <option value="2025-01">2025-01</option>
+                        <option value="2025-07">2025-07</option>
+                        <option value="2026-01">2026-01</option>
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_webhook_secret">Webhook Secret (optional)</Label>
                       <Input
                         id="edit_webhook_secret"
-                        type="password"
+                        type="text"
+                        autoComplete="off"
                         value={editingStore.webhook_secret}
                         onChange={(e) => setEditingStore({ ...editingStore, webhook_secret: e.target.value })}
                       />
