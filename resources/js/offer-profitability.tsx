@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { formatCurrency } from '@/lib/currency';
 
@@ -189,8 +190,23 @@ function ProfitabilityPage() {
   if (loading) {
     return (
       <Container>
-        <MainTitle>Profitability</MainTitle>
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-3/4 mt-5 mb-3" />
+          <Skeleton className="h-9 w-48" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-1/4" />
+            <div className="rounded-md border p-4 space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+        </div>
       </Container>
     );
   }

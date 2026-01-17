@@ -40,7 +40,7 @@ function ProductSelector({
 
   useEffect(() => {
     if (filteredOptions.length === 1) {
-      onSelect(filteredOptions[0]);
+      onSelect(filteredOptions[0] || null);
     }
   }, [filteredOptions, onSelect]);
 

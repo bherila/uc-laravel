@@ -6,6 +6,7 @@ import MainTitle from '@/components/MainTitle';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { formatDistanceToNow, parseISO, isAfter, isBefore } from 'date-fns';
 
@@ -119,8 +120,22 @@ function OfferListPage() {
   if (loading) {
     return (
       <Container>
-        <MainTitle>Offers</MainTitle>
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-1/4 mt-5 mb-3" />
+          <Skeleton className="h-10 w-40" />
+          <div className="rounded-md border">
+            <div className="p-4 border-b">
+              <Skeleton className="h-8 w-full" />
+            </div>
+            <div className="p-4 space-y-4">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          </div>
+        </div>
       </Container>
     );
   }

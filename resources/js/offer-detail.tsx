@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { formatCurrency } from '@/lib/currency';
 
@@ -143,8 +144,22 @@ function OfferDetailPage() {
   if (loading) {
     return (
       <Container>
-        <MainTitle>Offer Details</MainTitle>
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-2/3 mt-5 mb-3" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-9 w-40" />
+          </div>
+          <div className="rounded-md border p-4 space-y-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        </div>
       </Container>
     );
   }

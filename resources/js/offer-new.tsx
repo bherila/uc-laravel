@@ -6,6 +6,7 @@ import MainTitle from '@/components/MainTitle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 
 interface ShopifyProduct {
@@ -48,8 +49,9 @@ function ProductSelector({
   }, [filteredOptions, disabledOptions]);
 
   useEffect(() => {
-    if (sortedOptions.length === 1 && !disabledOptions.includes(sortedOptions[0].variantId)) {
-      onSelect(sortedOptions[0]);
+    const firstOption = sortedOptions[0];
+    if (firstOption && sortedOptions.length === 1 && !disabledOptions.includes(firstOption.variantId)) {
+      onSelect(firstOption);
     }
   }, [sortedOptions, disabledOptions, onSelect]);
 
@@ -148,8 +150,26 @@ function NewOfferPage() {
   if (loading) {
     return (
       <Container>
-        <MainTitle>Create New Offer</MainTitle>
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-1/3 mt-5 mb-3" />
+          <div className="max-w-2xl space-y-6">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-48 w-full" />
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-10 w-32" />
+            </div>
+          </div>
+        </div>
       </Container>
     );
   }

@@ -1,0 +1,3 @@
+[submodule "uc-plugin"]
+	path = uc-plugin
+	url = https://github.com/bherila/uc-plugin.git
