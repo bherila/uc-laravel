@@ -47,7 +47,6 @@ export default function Navbar({ authenticated, isAdmin }: NavbarProps) {
             {isAdmin && (
               <>
                 <li><a className='hover:underline underline-offset-4' href='/admin/users'>Users</a></li>
-                <li><a className='hover:underline underline-offset-4' href='/admin/stores'>Manage Shops</a></li>
               </>
             )}
           </ul>

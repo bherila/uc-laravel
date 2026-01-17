@@ -32,10 +32,10 @@ class ShopController extends Controller
         $user = $request->user();
 
         if ($user->isAdmin()) {
-            // Admins see all active shops
-            $shops = ShopifyShop::where('is_active', true)
-                ->select('id', 'name', 'shop_domain')
+            // Admins see all shops
+            $shops = ShopifyShop::select('id', 'name', 'shop_domain', 'is_active', 'api_version')
                 ->withCount('offers')
+                ->withCount('users')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($shop) {
@@ -43,7 +43,10 @@ class ShopController extends Controller
                         'id' => $shop->id,
                         'name' => $shop->name,
                         'shop_domain' => $shop->shop_domain,
+                        'is_active' => $shop->is_active,
+                        'api_version' => $shop->api_version,
                         'offers_count' => $shop->offers_count,
+                        'users_count' => $shop->users_count,
                         'access_level' => 'read-write',
                     ];
                 });
@@ -60,7 +63,10 @@ class ShopController extends Controller
                         'id' => $shop->id,
                         'name' => $shop->name,
                         'shop_domain' => $shop->shop_domain,
+                        'is_active' => true,
+                        'api_version' => $shop->api_version, // Note: might need to ensure this is selected
                         'offers_count' => $shop->offers_count,
+                        'users_count' => null,
                         'access_level' => $shop->pivot->access_level,
                     ];
                 });

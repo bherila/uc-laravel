@@ -27,14 +27,6 @@ class AdminController extends Controller
     }
 
     /**
-     * Show the stores management page.
-     */
-    public function storesPage()
-    {
-        return view('admin.stores');
-    }
-
-    /**
      * Show the user detail/edit page.
      */
     public function userDetailPage(int $id)

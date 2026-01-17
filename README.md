@@ -192,10 +192,9 @@ resources/js/
 - `/shop/{id}/offers/{offerId}/metafields` - View/update Shopify metafields
 - `/shop/{id}/offers/{offerId}/shopify_manifests` - View order allocations
 
-### Admin (requires admin)
+### Admin (requires admin access)
 - `/admin/users` - User management
 - `/admin/users/{id}` - User detail with shop access editing
-- `/admin/stores` - Store management
 - `/admin/stores/{id}` - Store detail with API credentials
 
 ## Shopify Integration
