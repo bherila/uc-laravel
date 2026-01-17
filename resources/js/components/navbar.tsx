@@ -43,7 +43,7 @@ export default function Navbar({ authenticated, isAdmin }: NavbarProps) {
         </a>
         {authenticated && (
           <ul className='hidden md:flex items-center gap-4 text-sm'>
-            <li><a className='hover:underline underline-offset-4' href='/shops'>Offers</a></li>
+            <li><a className='hover:underline underline-offset-4' href='/shops'>Shops</a></li>
             {isAdmin && (
               <>
                 <li><a className='hover:underline underline-offset-4' href='/admin/users'>Users</a></li>

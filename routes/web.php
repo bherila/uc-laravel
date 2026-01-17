@@ -8,6 +8,9 @@ use App\Http\Controllers\OfferManifestController;
 
 // Home page
 Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect()->route('shops');
+    }
     return view('welcome');
 })->name('home');
 
