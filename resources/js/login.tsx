@@ -155,7 +155,7 @@ function Login() {
                 required
               />
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="mt-6 flex items-center space-x-2 mb-4">
               <Checkbox
                 id="remember"
                 checked={remember}
