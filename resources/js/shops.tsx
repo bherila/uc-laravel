@@ -422,6 +422,7 @@ function ShopsPage() {
                             onClick={() => deleteStore(shop.id)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
                             title="Delete Store"
+                            disabled={shop.offers_count > 0}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
