@@ -239,7 +239,3 @@ The application uses Laravel's built-in session-based authentication. Protected 
 - `admin` - Requires admin status, returns 403 if not admin
 - `shop.access:read` - Requires at least read-only access to the shop
 - `shop.access:write` - Requires read-write access to the shop
-
-## License
-
-Proprietary - All Rights Reserved
