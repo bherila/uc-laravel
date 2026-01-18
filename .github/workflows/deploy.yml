@@ -80,10 +80,10 @@ jobs:
             artisan \
             composer.json \
             composer.lock \
-            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:~/bwh-php/
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:~/uc-laravel/
 
       - name: Run artisan config clear/cache on server
         run: |
           sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no \
             ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
-            "cd ~/bwh-php && /opt/cpanel/ea-php83/root/usr/bin/php artisan config:clear && /opt/cpanel/ea-php83/root/usr/bin/php artisan config:cache && cd ~ && rm -rf public_html && rm -rf web && ln -s bwh-php/public public_html && ln -s bwh-php/public web"
+            "cd ~/uc-laravel && /opt/cpanel/ea-php83/root/usr/bin/php artisan config:clear && /opt/cpanel/ea-php83/root/usr/bin/php artisan config:cache && cd ~ && rm -rf ucadmin.undergroundcellar.com && ln -s uc-laravel/public ucadmin.undergroundcellar.com"
