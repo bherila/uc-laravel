@@ -11,6 +11,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.jsx',
                 'resources/js/home.tsx',
+                'resources/js/login.tsx',
                 'resources/js/navbar.tsx',
                 'resources/js/shops.tsx',
                 'resources/js/shop-dashboard.tsx',
