@@ -16,7 +16,7 @@ use App\Http\Controllers\Auth\PasswordResetController;
 */
 
 // Password Reset Routes
-Route::post('forgot-password', [PasswordResetController::class, 'sendResetCodeEmail']);
+Route::post('forgot-password', [PasswordResetController::class, 'sendResetLinkEmail']);
 Route::post('reset-password', [PasswordResetController::class, 'reset']);
 
 // Shops accessible to current user

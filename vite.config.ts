@@ -24,6 +24,7 @@ export default defineConfig({
                 'resources/js/offer-manifests.tsx',
                 'resources/js/admin-users.tsx',
                 'resources/js/admin-user-detail.tsx',
+                'resources/js/reset-password.tsx',
             ],
       refresh: true,
     }),

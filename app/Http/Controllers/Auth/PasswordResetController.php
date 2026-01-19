@@ -13,12 +13,26 @@ use App\Models\User;
 class PasswordResetController extends Controller
 {
     /**
+     * Display the password reset view for the given token.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  string|null  $token
+     * @return \Illuminate\View\View
+     */
+    public function showResetForm(Request $request, $token = null)
+    {
+        return view('auth.reset-password')->with(
+            ['token' => $token, 'email' => $request->email]
+        );
+    }
+
+    /**
      * Send a password reset link to the given user.
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function sendResetCodeEmail(Request $request)
+    public function sendResetLinkEmail(Request $request)
     {
         $request->validate(['email' => 'required|email']);
 
@@ -73,6 +87,9 @@ class PasswordResetController extends Controller
             ]);
         }
 
-        return response()->json(['message' => trans($status)]);
+        return response()->json([
+            'message' => trans($status),
+            'redirect' => route('home')
+        ]);
     }
 }

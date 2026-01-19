@@ -21,10 +21,6 @@ function Login() {
   // Password Reset State
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
-  const [resetCode, setResetCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newPasswordConfirmation, setNewPasswordConfirmation] = useState('');
-  const [resetStep, setResetStep] = useState(1); // 1: enter email, 2: enter code+new password
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
@@ -59,9 +55,6 @@ function Login() {
     setShowResetDialog(true);
     setResetStep(1);
     setResetEmail('');
-    setResetCode('');
-    setNewPassword('');
-    setNewPasswordConfirmation('');
     setResetError(null);
     setResetSuccess(null);
   };
@@ -74,64 +67,17 @@ function Login() {
 
     try {
       const response = await axios.post('/api/forgot-password', { email: resetEmail });
-      setResetSuccess(response.data.message || 'Password reset code sent!');
-      setResetStep(2);
+      setResetSuccess(response.data.message || 'If an account exists for this email, a password reset link has been sent.');
+      // Keep on step 1 but show success message
     } catch (err: any) {
-      setResetError(err.response?.data?.message || 'Failed to send reset code. Please try again.');
-      setResetError(err.response?.data?.errors?.email?.[0] || 'Failed to send reset code. Please try again.');
+      setResetError(err.response?.data?.errors?.email?.[0] || err.response?.data?.message || 'Failed to send reset link. Please try again.');
     } finally {
       setResetLoading(false);
     }
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setResetLoading(true);
-    setResetError(null);
-    setResetSuccess(null);
+  // Removed handleResetPassword and token-based useEffect logic as we now use a dedicated page
 
-    try {
-      const response = await axios.post('/api/reset-password', {
-        token: resetCode,
-        email: resetEmail,
-        password: newPassword,
-        password_confirmation: newPasswordConfirmation,
-      });
-
-      setResetSuccess(response.data.message || 'Password has been reset successfully. You are now logged in.');
-      // Optionally log in the user or redirect
-      window.location.href = '/shops'; // Assuming /shops is a common landing page after login
-    } catch (err: any) {
-      setResetError(err.response?.data?.message || 'Failed to reset password. Please check your code and try again.');
-      if (err.response?.data?.errors) {
-        if (err.response.data.errors.email) setResetError(err.response.data.errors.email[0]);
-        if (err.response.data.errors.password) setResetError(err.response.data.errors.password[0]);
-        if (err.response.data.errors.token) setResetError(err.response.data.errors.token[0]);
-      }
-    } finally {
-      setResetLoading(false);
-    }
-  };
-
-  // Open reset dialog if a token (or token param) is present in the URL
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get('reset') || params.get('token');
-      const emailParam = params.get('email');
-      if (token) {
-        setShowResetDialog(true);
-        setResetStep(2);
-        setResetCode(token);
-        if (emailParam) setResetEmail(emailParam);
-        // remove query params so reload doesn't reopen dialog
-        const cleanUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, []);
 
   return (
     <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -202,19 +148,18 @@ function Login() {
       <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{resetStep === 1 ? 'Forgot Password' : 'Reset Password'}</DialogTitle>
+            <DialogTitle>Forgot Password</DialogTitle>
           </DialogHeader>
           {resetError && (
             <Alert variant="destructive">
               <AlertDescription>{resetError}</AlertDescription>
             </Alert>
           )}
-          {resetSuccess && resetStep === 1 && (
+          {resetSuccess ? (
             <Alert>
               <AlertDescription>{resetSuccess}</AlertDescription>
             </Alert>
-          )}
-          {resetStep === 1 && (
+          ) : (
             <form onSubmit={handleSendResetCode} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="reset-email">Email</Label>
@@ -229,47 +174,7 @@ function Login() {
               <DialogFooter>
                 <Button type="submit" disabled={resetLoading}>
                   {resetLoading ? <Spinner size="small" className="mr-2" /> : null}
-                  Send Reset Code
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
-          {resetStep === 2 && (
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reset-code">Reset Code</Label>
-                <Input
-                  id="reset-code"
-                  type="text"
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-password-confirmation">Confirm New Password</Label>
-                <Input
-                  id="new-password-confirmation"
-                  type="password"
-                  value={newPasswordConfirmation}
-                  onChange={(e) => setNewPasswordConfirmation(e.target.value)}
-                  required
-                />
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={resetLoading}>
-                  {resetLoading ? <Spinner size="small" className="mr-2" /> : null}
-                  Reset Password
+                  Send Reset Link
                 </Button>
               </DialogFooter>
             </form>

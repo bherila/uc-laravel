@@ -15,11 +15,8 @@ return new class extends Migration
             // Rename uid → id
             $table->renameColumn('uid', 'id');
 
-            // Rename pw → password
-            $table->renameColumn('pw', 'password');
-
-            // Remove salt column
-            $table->dropColumn('salt');
+            // Add new password column (keeping 'pw' and 'salt' for migration)
+            $table->string('password')->nullable()->after('email');
 
             // Add Laravel-required columns
             $table->timestamp('email_verified_at')->nullable()->after('email');
@@ -36,9 +33,8 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             // Reverse changes
             $table->renameColumn('id', 'uid');
-            $table->renameColumn('password', 'pw');
-
-            $table->bigInteger('salt')->default(0);
+            
+            $table->dropColumn('password');
 
             $table->dropColumn('email_verified_at');
             $table->dropRememberToken();

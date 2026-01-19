@@ -19,6 +19,8 @@ Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+Route::get('password/reset/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
+
 // Authenticated routes
 Route::middleware('auth')->group(function () {
     // Shops list
@@ -69,9 +71,6 @@ Route::middleware('auth')->group(function () {
         // Store detail separate page removed; editing is handled inline in the Shops page modal.
     });
 
-    Route::get('password/reset/{token}', function ($token) {
-        return redirect()->route('login', ['reset' => $token]);
-    })->name('password.reset');
     // Legacy offer routes (redirect to shops)
     Route::get('/offers', function () {
         return redirect()->route('shops');
