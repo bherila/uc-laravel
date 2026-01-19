@@ -1,5 +1,5 @@
 import './bootstrap';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -112,6 +112,26 @@ function Login() {
       setResetLoading(false);
     }
   };
+
+  // Open reset dialog if a token (or token param) is present in the URL
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('reset') || params.get('token');
+      const emailParam = params.get('email');
+      if (token) {
+        setShowResetDialog(true);
+        setResetStep(2);
+        setResetCode(token);
+        if (emailParam) setResetEmail(emailParam);
+        // remove query params so reload doesn't reopen dialog
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   return (
     <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">

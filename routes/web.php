@@ -69,6 +69,9 @@ Route::middleware('auth')->group(function () {
         // Store detail separate page removed; editing is handled inline in the Shops page modal.
     });
 
+    Route::get('password/reset/{token}', function ($token) {
+        return redirect()->route('login', ['reset' => $token]);
+    })->name('password.reset');
     // Legacy offer routes (redirect to shops)
     Route::get('/offers', function () {
         return redirect()->route('shops');
