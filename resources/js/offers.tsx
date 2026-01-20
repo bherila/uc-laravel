@@ -20,6 +20,12 @@ import {
 } from "@/components/ui/select";
 import { Archive, ArchiveRestore, Trash2, Loader2 } from 'lucide-react';
 import { SimplePagination } from '@/components/SimplePagination';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface OfferProductData {
   variantId: string;
@@ -205,11 +211,12 @@ function OfferListPage() {
   }
 
   return (
-    <Container>
-      <ShopOfferBreadcrumb 
-        shopId={shopId!} 
-        shopName={shopName} 
-      />
+    <TooltipProvider>
+      <Container>
+        <ShopOfferBreadcrumb 
+          shopId={shopId!} 
+          shopName={shopName} 
+        />
 
       <div className="mb-4 flex justify-between items-center">
         {canWrite ? (
@@ -348,20 +355,30 @@ function OfferListPage() {
                               Archive
                             </Button>
                           ) : (
-                            <Button 
-                              variant="destructive" 
-                              size="sm" 
-                              onClick={() => deleteOffer(offer.offer_id)}
-                              disabled={isItemLoading || offer.allocated_manifests_count > 0}
-                              title={offer.allocated_manifests_count > 0 ? "Cannot delete offer with allocated manifests" : ""}
-                            >
-                              {isItemLoading ? (
-                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4 mr-1" />
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="inline-block">
+                                  <Button 
+                                    variant="destructive" 
+                                    size="sm" 
+                                    onClick={() => deleteOffer(offer.offer_id)}
+                                    disabled={isItemLoading || offer.allocated_manifests_count > 0}
+                                  >
+                                    {isItemLoading ? (
+                                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4 mr-1" />
+                                    )}
+                                    Delete
+                                  </Button>
+                                </div>
+                              </TooltipTrigger>
+                              {offer.allocated_manifests_count > 0 && (
+                                <TooltipContent>
+                                  Cannot delete offer with {offer.allocated_manifests_count} allocated manifests
+                                </TooltipContent>
                               )}
-                              Delete
-                            </Button>
+                            </Tooltip>
                           )}
                         </div>
                       </TableCell>
@@ -385,6 +402,7 @@ function OfferListPage() {
         )}
       </div>
     </Container>
+    </TooltipProvider>
   );
 }
 
