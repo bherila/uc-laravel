@@ -132,6 +132,9 @@ Defined in [routes/api.php](routes/api.php):
 - `PUT /api/admin/users/{id}/shop-accesses` - Update user shop access
 - `GET/POST /api/admin/stores` - List/create stores
 - `GET/PUT/DELETE /api/admin/stores/{id}` - Store CRUD
+- `GET /api/admin/webhooks` - List webhooks
+- `GET /api/admin/webhooks/{id}` - Get details
+- `POST /api/admin/webhooks/{id}/rerun` - Re-run webhook
 
 ## Frontend Patterns
 
@@ -176,6 +179,12 @@ Each page follows this pattern:
 - List stores with create/delete actions.
 - Edit store details and API credentials.
 - **Logic**: When the first store is created, any existing offers with `shop_id IS NULL` are automatically assigned to it.
+
+### Webhook Management ([resources/js/admin-webhooks.tsx](resources/js/admin-webhooks.tsx), [resources/js/admin-webhook-detail.tsx](resources/js/admin-webhook-detail.tsx))
+- Labeled "Webhooks" in navbar (needs to be added).
+- Lists all incoming webhooks with status badges.
+- Detail page shows payload, headers, and execution logs (webhook_sub events).
+- Re-run functionality creates a new webhook record linked to the original.
 
 ## Shopify Performance & Caching
 

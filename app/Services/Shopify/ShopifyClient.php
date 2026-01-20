@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Shopify;
 
+use App\Models\WebhookSub;
 use App\Models\ShopifyShop;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\PendingRequest;
@@ -15,6 +16,7 @@ class ShopifyClient
     private ?string $accessToken;
     private string $apiVersion;
     private ?ShopifyShop $shop = null;
+    private ?int $webhookId = null;
 
     public function __construct(?ShopifyShop $shop = null)
     {
@@ -38,6 +40,12 @@ class ShopifyClient
         $this->shopDomain = $shop->shop_domain;
         $this->accessToken = $shop->admin_api_token;
         $this->apiVersion = $shop->api_version ?? '2025-01';
+        return $this;
+    }
+
+    public function setWebhookId(?int $webhookId): self
+    {
+        $this->webhookId = $webhookId;
         return $this;
     }
 
@@ -100,6 +108,19 @@ class ShopifyClient
             'query' => $query,
             'variables' => $variables,
         ]);
+
+        if ($this->webhookId) {
+            try {
+                WebhookSub::create([
+                    'webhook_id' => $this->webhookId,
+                    'shopify_request' => json_encode(['query' => $query, 'variables' => $variables]),
+                    'shopify_response' => $response->body(),
+                    'shopify_response_code' => $response->status(),
+                ]);
+            } catch (\Exception $e) {
+                // Ignore logging errors to avoid breaking the flow
+            }
+        }
 
         // Handle rate limiting
         if ($response->status() === 429) {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\AuditLog;
+use App\Models\Webhook;
 use App\Models\ShopifyShop;
 use App\Services\Shopify\ShopifyClient;
 use App\Services\Shopify\ShopifyOrderProcessingService;
@@ -22,21 +22,41 @@ class ShopifyWebhookController extends Controller
      */
     public function handle(Request $request): JsonResponse
     {
-        $webhookData = $request->all();
+        set_time_limit(180); // 3 minutes
+
+        $payload = $request->getContent();
+        $headers = json_encode($request->headers->all());
+        $rerunOfId = $request->header('X-Rerun-Of-Id');
+        
+        $webhook = Webhook::create([
+            'payload' => $payload,
+            'headers' => $headers,
+            'rerun_of_id' => $rerunOfId ? (int)$rerunOfId : null,
+        ]);
+
+        $webhookData = json_decode($payload, true);
+        if (!$webhookData) {
+            // Fallback to request->all() if JSON decode fails or content was parsed by middleware
+            $webhookData = $request->all();
+            if (empty($webhookData) && !empty($payload)) {
+                 // Payload was something else?
+            } else {
+                 // Update payload with what we have
+                 $webhook->update(['payload' => json_encode($webhookData)]);
+            }
+        }
+
         $orderId = null;
         $adminGraphqlApiId = null;
+        $validShopMatched = false;
+        $validHmac = false;
+        $errorMessage = null;
 
         try {
             $shopDomain = $request->header('X-Shopify-Shop-Domain');
             
-            AuditLog::create([
-                'source' => 'shopify_webhook',
-                'message' => "Webhook received from {$shopDomain}",
-                'payload' => $webhookData,
-            ]);
-
             // Find the shop by domain (leniently)
-            $shopDomainClean = strtolower(trim($shopDomain));
+            $shopDomainClean = strtolower(trim($shopDomain ?? ''));
             $shopHandle = str_replace('.myshopify.com', '', $shopDomainClean);
             
             $shop = ShopifyShop::where('shop_domain', $shopDomainClean)
@@ -44,19 +64,42 @@ class ShopifyWebhookController extends Controller
                 ->orWhere('shop_domain', $shopHandle . '.myshopify.com')
                 ->first();
             
-            if (!$shop) {
-                $this->log("Shop not found for domain: {$shopDomain}", null);
-                return response()->json(['error' => 'Shop not found'], 404);
-            }
-
-            if (!$shop->is_active) {
-                $this->log("Shop is inactive: {$shopDomain}", null);
-                return response()->json(['error' => 'Shop is inactive'], 403);
+            if ($shop) {
+                $validShopMatched = true;
+                if ($shop->is_active) {
+                     // Active
+                } else {
+                     $errorMessage = 'Shop is inactive';
+                }
+            } else {
+                $errorMessage = 'Shop not found for domain: ' . $shopDomain;
             }
 
             // Verify HMAC with shop-specific secret
-            if (!$this->verifyHmac($request, $shop)) {
-                $this->log("HMAC verification failed for shop: {$shopDomain}", null);
+            if ($shop && $this->verifyHmac($request, $shop)) {
+                $validHmac = true;
+            } elseif ($shop) {
+                 $errorMessage = 'HMAC verification failed';
+            }
+
+            // Update webhook with validation status
+            $webhook->update([
+                'valid_shop_matched' => $validShopMatched,
+                'valid_hmac' => $validHmac,
+            ]);
+
+            if (!$validShopMatched) {
+                $webhook->update(['error_ts' => now(), 'error_message' => $errorMessage ?? 'Shop not found']);
+                return response()->json(['error' => 'Shop not found'], 404);
+            }
+            
+            if (!$shop->is_active) {
+                $webhook->update(['error_ts' => now(), 'error_message' => 'Shop is inactive']);
+                return response()->json(['error' => 'Shop is inactive'], 403);
+            }
+
+            if (!$validHmac) {
+                $webhook->update(['error_ts' => now(), 'error_message' => 'HMAC verification failed']);
                 return response()->json(['error' => 'HMAC verification failed'], 401);
             }
 
@@ -84,16 +127,20 @@ class ShopifyWebhookController extends Controller
                 throw new \RuntimeException('Could not determine admin_graphql_api_id from webhook data');
             }
 
-            $this->log('About to process webhook: ' . json_encode($webhookData), $orderId);
-
             // Create shop-specific services
             $orderProcessingService = $this->createOrderProcessingService($shop);
-            $orderProcessingService->processOrder($adminGraphqlApiId);
+            $orderProcessingService->processOrder($adminGraphqlApiId, $webhook->id);
+
+            $webhook->update(['success_ts' => now()]);
 
             return response()->json(null, 200);
         } catch (\Exception $e) {
-            $this->log('Error parsing webhook data: ' . json_encode($webhookData), $orderId);
-            $this->log($e->getMessage(), $orderId);
+            $webhook->update([
+                'valid_shop_matched' => $validShopMatched,
+                'valid_hmac' => $validHmac,
+                'error_ts' => now(),
+                'error_message' => $e->getMessage()
+            ]);
 
             return response()->json(null, 400);
         }
@@ -135,14 +182,5 @@ class ShopifyWebhookController extends Controller
         $computedHmac = base64_encode(hash_hmac('sha256', $data, $secret, true));
 
         return hash_equals($hmacHeader, $computedHmac);
-    }
-
-    private function log(string $message, ?int $orderId = null): void
-    {
-        AuditLog::create([
-            'event_name' => 'webhook',
-            'event_ext' => $message,
-            'order_id' => $orderId,
-        ]);
     }
 }

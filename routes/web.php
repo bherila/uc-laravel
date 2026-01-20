@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\OfferManifestController;
+use App\Http\Controllers\WebhookController;
 
 // Home page
 Route::get('/', function () {
@@ -69,7 +70,9 @@ Route::middleware('auth')->group(function () {
     Route::middleware('admin')->prefix('/admin')->group(function () {
         Route::get('/users', [AdminController::class, 'usersPage'])->name('admin.users');
         Route::get('/users/{id}', [AdminController::class, 'userDetailPage'])->name('admin.users.detail');
-        // Store detail separate page removed; editing is handled inline in the Shops page modal.
+
+        Route::get('/webhooks', [WebhookController::class, 'indexPage'])->name('admin.webhooks');
+        Route::get('/webhooks/{id}', [WebhookController::class, 'showPage'])->name('admin.webhooks.detail');
     });
 
     // Legacy offer routes (redirect to shops)

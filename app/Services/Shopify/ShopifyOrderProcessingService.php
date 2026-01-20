@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Shopify;
 
-use App\Models\AuditLog;
+use App\Models\WebhookSub;
 use App\Models\Offer;
 use App\Models\OfferManifest;
 use App\Models\OrderLock;
@@ -21,8 +21,7 @@ class ShopifyOrderProcessingService
     private ?int $currentOfferId = null;
     private ?int $currentOrderIdNumeric = null;
     private int $startTime;
-    /** @var array<string> */
-    private array $logBuffer = [];
+    private ?int $webhookId = null;
 
     public function __construct(
         private ShopifyClient $client,
@@ -35,8 +34,11 @@ class ShopifyOrderProcessingService
     /**
      * Process a Shopify order - main entry point
      */
-    public function processOrder(string $orderId): void
+    public function processOrder(string $orderId, ?int $webhookId = null): void
     {
+        $this->webhookId = $webhookId;
+        $this->client->setWebhookId($webhookId);
+        
         $orderIdNumeric = $this->extractOrderIdNumeric($orderId);
         $orderIdUri = "gid://shopify/Order/{$orderIdNumeric}";
 
@@ -46,7 +48,7 @@ class ShopifyOrderProcessingService
         $fiveMinutesAgo = $now->copy()->subMinutes(5);
 
         if ($existingLock && $existingLock->locked_at > $fiveMinutesAgo) {
-            \Log::info("Order {$orderId} is already being processed, skipping");
+            $this->logSub("Order {$orderId} is already being processed, skipping");
             return;
         }
 
@@ -61,15 +63,12 @@ class ShopifyOrderProcessingService
         try {
             $this->processOrderInternal($orderId);
         } finally {
-            // Flush any pending logs
-            $this->flushLogs();
-
             // Release lock
             OrderLock::where('order_id', $orderIdUri)->delete();
         }
 
         $elapsed = (int)(microtime(true) * 1000) - $this->startTime;
-        \Log::info("Order processing done in {$elapsed}ms");
+        $this->logSub("Order processing done in {$elapsed}ms");
     }
 
     private function processOrderInternal(string $orderId): void
@@ -80,14 +79,14 @@ class ShopifyOrderProcessingService
         // Fetch order from Shopify
         $orders = $this->orderService->getOrdersWithLineItems([$orderIdUri]);
         if (empty($orders)) {
-            $this->pushLog("Order {$orderIdUri} not found");
+            $this->logSub("Order {$orderIdUri} not found");
             return;
         }
 
         $shopifyOrder = $orders[0];
 
         if ($shopifyOrder['cancelledAt'] !== null) {
-            $this->pushLog("Order {$orderIdUri} is cancelled, skipping processing.");
+            $this->logSub("Order {$orderIdUri} is cancelled, skipping processing.");
             return;
         }
 
@@ -108,7 +107,7 @@ class ShopifyOrderProcessingService
             }
         }
 
-        $this->pushLog("Found " . count($variant2DealItemMap) . " deal line items");
+        $this->logSub("Found " . count($variant2DealItemMap) . " deal line items");
 
         // Get offers and build variant->offer mapping
         $offers = Offer::all(['offer_id', 'offer_variant_id'])->keyBy('offer_variant_id');
@@ -131,18 +130,18 @@ class ShopifyOrderProcessingService
 
             // Skip free items
             if (!$orderLineItem['discountedTotalSet_shopMoney_amount']) {
-                $this->pushLog("Skip free item " . $orderLineItem['line_item_id']);
+                $this->logSub("Skip free item " . $orderLineItem['line_item_id']);
                 continue;
             }
 
             $this->currentOfferId = $offerIdFromVariantId[$variantId] ?? null;
 
             if (!$this->currentOfferId) {
-                $this->pushLog("No match to offer for variant {$variantId}");
+                $this->logSub("No match to offer for variant {$variantId}");
                 continue;
             }
 
-            $this->pushLog("Match offer_id: {$this->currentOfferId} for variant {$variantId}");
+            $this->logSub("Match offer_id: {$this->currentOfferId} for variant {$variantId}");
 
             // Get existing manifests for this order/offer
             $alreadyHaveQty = OfferManifest::where('assignee_id', $orderIdUri)
@@ -153,7 +152,7 @@ class ShopifyOrderProcessingService
                 ? $orderLineItem['currentQuantity'] - $alreadyHaveQty
                 : -$alreadyHaveQty;
 
-            $this->pushLog("{$alreadyHaveQty} already allocated, need {$needQty} more");
+            $this->logSub("{$alreadyHaveQty} already allocated, need {$needQty} more");
 
             // Maybe repick all bottles
             if (self::SHOULD_REPICK_ALL_BOTTLES && $needQty > 0 && $alreadyHaveQty > 0) {
@@ -163,14 +162,14 @@ class ShopifyOrderProcessingService
                     ->limit($alreadyHaveQty)
                     ->update(['assignee_id' => null]);
 
-                $this->pushLog("Reverted {$rowsReverted} bottles due to REPICK");
+                $this->logSub("Reverted {$rowsReverted} bottles due to REPICK");
 
                 // Reshuffle all available bottles
                 $reshuffleQty = OfferManifest::where('offer_id', $this->currentOfferId)
                     ->whereNull('assignee_id')
                     ->update(['assignment_ordering' => DB::raw('RAND()')]);
 
-                $this->pushLog("Reshuffled {$reshuffleQty} unpicked bottles");
+                $this->logSub("Reshuffled {$reshuffleQty} unpicked bottles");
 
                 $needQty += $alreadyHaveQty;
             }
@@ -190,21 +189,21 @@ class ShopifyOrderProcessingService
                         ->limit($rowsAffected)
                         ->update(['assignee_id' => null]);
 
-                    $this->pushLog("Reverted {$rowsReverted} rows due to insufficient allocation");
+                    $this->logSub("Reverted {$rowsReverted} rows due to insufficient allocation");
 
                     // Cancel order
-                    $this->pushLog("Attempting to cancel order {$orderIdUri}");
+                    $this->logSub("Attempting to cancel order {$orderIdUri}");
                     try {
                         $this->orderService->cancelOrder($orderIdUri);
                     } catch (\Exception $e) {
-                        $this->pushLog("Cancel error: " . $e->getMessage());
+                        $this->logSub("Cancel error: " . $e->getMessage());
                     }
 
                     // Set variant quantity to 0
                     try {
                         $this->productService->setVariantQuantity($purchasedDealVariantUri, 0);
                     } catch (\Exception $e) {
-                        $this->pushLog("Set quantity error: " . $e->getMessage());
+                        $this->logSub("Set quantity error: " . $e->getMessage());
                     }
                 }
             } elseif ($needQty < 0) {
@@ -214,7 +213,7 @@ class ShopifyOrderProcessingService
                     [$orderIdUri, $this->currentOfferId, -$needQty]
                 );
 
-                $this->pushLog("Released {$rowsAffected} bottles");
+                $this->logSub("Released {$rowsAffected} bottles");
             }
         }
 
@@ -232,18 +231,18 @@ class ShopifyOrderProcessingService
 
         // Sanity check - for now just log
         $totalQty = $offerManifests->count();
-        $this->pushLog("Total manifests allocated: {$totalQty}");
+        $this->logSub("Total manifests allocated: {$totalQty}");
 
         // Begin order edit
         $editResult = $this->orderEditService->beginEdit($orderIdUri);
         $calculatedOrderId = $editResult['calculatedOrderId'];
 
         if (!$calculatedOrderId) {
-            $this->pushLog('CalculatedOrderId was null, aborting');
+            $this->logSub('CalculatedOrderId was null, aborting');
             return;
         }
 
-        $this->pushLog("Opened CalculatedOrder {$calculatedOrderId}");
+        $this->logSub("Opened CalculatedOrder {$calculatedOrderId}");
 
         // Get existing manifest items in order
         $preExistingManifests = array_filter(
@@ -309,7 +308,7 @@ class ShopifyOrderProcessingService
             }
         }
 
-        $this->pushLog('Calculated orderEdit actions: ' . json_encode($actions));
+        $this->logSub('Calculated orderEdit actions: ' . json_encode($actions));
 
         if (count($actions) > 0) {
             // Perform additions first to preserve shipping method
@@ -324,14 +323,14 @@ class ShopifyOrderProcessingService
                         $action['updateLineItemId'],
                         $action['qty']
                     );
-                    $this->pushLog("Updated line item to qty {$action['qty']}");
+                    $this->logSub("Updated line item to qty {$action['qty']}");
                 } else {
                     $addResult = $this->orderEditService->addVariant(
                         $calculatedOrderId,
                         $action['variantId'],
                         $action['qty']
                     );
-                    $this->pushLog("Added variant {$action['variantId']} with qty {$action['qty']}");
+                    $this->logSub("Added variant {$action['variantId']} with qty {$action['qty']}");
 
                     // Add 100% discount
                     if (isset($addResult['calculatedLineItem']['id'])) {
@@ -343,19 +342,19 @@ class ShopifyOrderProcessingService
                                 'description' => 'UPGRADED',
                             ]
                         );
-                        $this->pushLog('Added 100% discount');
+                        $this->logSub('Added 100% discount');
                     }
                 }
             }
 
             // Commit the edit
             $commitResult = $this->orderEditService->commit($calculatedOrderId);
-            $this->pushLog('orderEditCommit: ' . json_encode($commitResult));
+            $this->logSub('orderEditCommit: ' . json_encode($commitResult));
 
             // Try to merge fulfillment orders
             $this->tryMergeFulfillmentOrders($orderIdUri);
         } else {
-            $this->pushLog('SKIP orderEditCommit - Nothing to do');
+            $this->logSub('SKIP orderEditCommit - Nothing to do');
         }
     }
 
@@ -363,7 +362,7 @@ class ShopifyOrderProcessingService
     {
         try {
             $fulfillmentOrders = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
-            $this->pushLog("Found " . count($fulfillmentOrders) . " fulfillment orders");
+            $this->logSub("Found " . count($fulfillmentOrders) . " fulfillment orders");
 
             if (count($fulfillmentOrders) > 1) {
                 $openOrders = array_filter($fulfillmentOrders, fn($fo) => $fo['status'] === 'OPEN');
@@ -389,7 +388,7 @@ class ShopifyOrderProcessingService
                     }
 
                     if ($areMergeable && $hasNonShipping) {
-                        $this->pushLog('Fulfillment orders are mergeable. Merging now.');
+                        $this->logSub('Fulfillment orders are mergeable. Merging now.');
 
                         // Sort so non-shipping comes first
                         usort($openOrders, function ($a, $b) {
@@ -410,12 +409,12 @@ class ShopifyOrderProcessingService
                             ['mergeIntents' => $mergeIntents],
                         ]);
 
-                        $this->pushLog('Merge result: ' . json_encode($mergeResult));
+                        $this->logSub('Merge result: ' . json_encode($mergeResult));
                     }
                 }
             }
         } catch (\Exception $e) {
-            $this->pushLog('Fulfillment merge error: ' . $e->getMessage());
+            $this->logSub('Fulfillment merge error: ' . $e->getMessage());
         }
     }
 
@@ -425,23 +424,24 @@ class ShopifyOrderProcessingService
         return is_numeric($numeric) ? (int)$numeric : null;
     }
 
-    private function pushLog(string $message): void
+    private function logSub(string $message): void
     {
-        $this->logBuffer[] = $message;
-        \Log::info('[shopifyProcessOrder] ' . $message);
-    }
+        if ($this->webhookId) {
+            $offerId = $this->currentOfferId;
+            // Ensure numeric just in case, though it is typed int
+            if ($offerId && !is_numeric($offerId)) {
+                 $offerId = (int)filter_var((string)$offerId, FILTER_SANITIZE_NUMBER_INT);
+            }
 
-    private function flushLogs(): void
-    {
-        foreach ($this->logBuffer as $message) {
-            AuditLog::create([
-                'event_name' => 'shopifyProcessOrder',
-                'event_ext' => $message,
-                'offer_id' => $this->currentOfferId,
+            $timeTaken = isset($this->startTime) ? (int)(microtime(true) * 1000) - $this->startTime : 0;
+
+            WebhookSub::create([
+                'webhook_id' => $this->webhookId,
+                'event' => $message,
+                'offer_id' => $offerId,
                 'order_id' => $this->currentOrderIdNumeric,
-                'time_taken_ms' => (int)(microtime(true) * 1000) - $this->startTime,
+                'time_taken_ms' => $timeTaken,
             ]);
         }
-        $this->logBuffer = [];
     }
 }

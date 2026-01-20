@@ -7,6 +7,7 @@ use App\Http\Controllers\OfferManifestController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\ShopifyWebhookController;
+use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\Auth\PasswordResetController;
 
 /*
@@ -58,6 +59,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('stores/{id}', [AdminController::class, 'getStore']);
     Route::put('stores/{id}', [AdminController::class, 'updateStore']);
     Route::delete('stores/{id}', [AdminController::class, 'deleteStore']);
+
+    // Webhooks
+    Route::get('webhooks', [WebhookController::class, 'list']);
+    Route::get('webhooks/{id}', [WebhookController::class, 'get']);
+    Route::post('webhooks/{id}/rerun', [WebhookController::class, 'rerun']);
 });
 
 // Shopify Webhook (no auth - uses HMAC verification and shop domain lookup)

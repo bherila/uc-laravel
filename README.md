@@ -10,6 +10,7 @@ A multi-tenant Laravel-based web application for managing Underground Cellar win
 - **Offer Management**: Create and manage wine offers with Shopify product integration
 - **Manifest Allocation**: Add wine bottles to offers and track allocation to orders
 - **Order Processing**: Automatic order manifest allocation via Shopify webhooks
+- **Webhook Management**: Log, view, and re-run incoming Shopify webhooks with full payload inspection
 - **Profitability Analysis**: Calculate margins, break-even scenarios, and sell-through projections
 - **Metafield Sync**: Automatically update Shopify product metafields with offer data
 - **Order Manifests**: View allocated orders and upgrade wine assignments
@@ -98,7 +99,8 @@ app/
 │   │   ├── OfferController.php     # Offer CRUD (shop-scoped)
 │   │   ├── OfferManifestController.php
 │   │   ├── ShopifyController.php   # Product data and inventory (shop-scoped)
-│   │   └── ShopifyWebhookController.php
+│   │   ├── ShopifyWebhookController.php
+│   │   └── WebhookController.php
 │   └── Middleware/
 │       ├── EnsureAdmin.php         # Admin access enforcement
 │       └── EnsureShopAccess.php    # Shop access with read/write levels
@@ -172,6 +174,9 @@ resources/js/
 - `GET /api/admin/stores/{id}` - Get store details
 - `PUT /api/admin/stores/{id}` - Update store
 - `DELETE /api/admin/stores/{id}` - Delete store
+- `GET /api/admin/webhooks` - List webhooks
+- `GET /api/admin/webhooks/{id}` - Get webhook details
+- `POST /api/admin/webhooks/{id}/rerun` - Re-run webhook
 
 ## Web Routes
 
@@ -196,6 +201,8 @@ resources/js/
 - `/admin/users` - User management
 - `/admin/users/{id}` - User detail with shop access editing
 - `/admin/stores/{id}` - Store detail with API credentials
+- `/admin/webhooks` - Webhook log list
+- `/admin/webhooks/{id}` - Webhook detail and re-run
 
 ## Shopify Integration
 

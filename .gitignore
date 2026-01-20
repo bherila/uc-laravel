@@ -1,6 +1,7 @@
 *.log
 .DS_Store
 .env
+.env.dev
 package-lock.json
 .env.backup
 .env.production
