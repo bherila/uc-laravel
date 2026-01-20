@@ -1,3 +1,4 @@
+@php($hideNavbar = true)
 @extends('layouts.app')
 
 @section('title', 'Welcome - ' . config('app.name'))

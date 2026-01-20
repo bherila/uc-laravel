@@ -22,12 +22,14 @@
     <script>(_=>{let a})()</script>
   </head>
   <body class="min-h-screen flex flex-col">
+    @unless($hideNavbar ?? false)
     <header class="site-header border-b border-gray-200 dark:border-[#3E3E3A] h-14">
       <div id="navbar" 
         data-authenticated="{{ auth()->check() ? 'true' : 'false' }}" 
         data-is-admin="{{ auth()->check() && auth()->user()->isAdmin() ? 'true' : 'false' }}" 
       />
     </header>
+    @endunless
 
     <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
       @yield('content')
