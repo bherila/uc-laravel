@@ -84,14 +84,32 @@ class ShopifyClient
      *
      * @param string $query The GraphQL query
      * @param array<string, mixed> $variables Variables for the query
+     * @param int $retries Internal use for tracking retries
      * @return array<string, mixed>
      */
-    public function graphql(string $query, array $variables = []): array
+    public function graphql(string $query, array $variables = [], int $retries = 0): array
     {
+        // Check for large ID arrays that need batching in nodes queries
+        foreach ($variables as $key => $value) {
+            if (is_array($value) && count($value) > 250 && preg_match('/nodes\s*\(\s*ids\s*:/i', $query)) {
+                return $this->graphqlBatched($query, $variables, $key);
+            }
+        }
+
         $response = $this->client()->post('/graphql.json', [
             'query' => $query,
             'variables' => $variables,
         ]);
+
+        // Handle rate limiting
+        if ($response->status() === 429) {
+            if ($retries < 5) {
+                $retryAfter = $response->header('Retry-After');
+                $waitSeconds = $retryAfter ? (int) $retryAfter : 2;
+                sleep($waitSeconds);
+                return $this->graphql($query, $variables, $retries + 1);
+            }
+        }
 
         if (!$response->successful()) {
             throw new \RuntimeException('Shopify GraphQL request failed: ' . $response->body());
@@ -100,10 +118,48 @@ class ShopifyClient
         $data = $response->json();
 
         if (isset($data['errors']) && !empty($data['errors'])) {
+            // Check for batch-related errors if we somehow missed them proactively
+            foreach ($data['errors'] as $error) {
+                if (($error['extensions']['code'] ?? '') === 'MAX_INPUT_SIZE_EXCEEDED') {
+                    // This should have been caught by the proactive check, but just in case:
+                    // We can't easily auto-fix here without knowing which variable is the culprit if multiple arrays exist
+                }
+            }
             throw new \RuntimeException('Shopify GraphQL errors: ' . json_encode($data['errors']));
         }
 
         return $data['data'] ?? [];
+    }
+
+    /**
+     * Split a nodes query into batches of 250
+     */
+    private function graphqlBatched(string $query, array $variables, string $idsKey): array
+    {
+        $allIds = $variables[$idsKey];
+        $batches = array_chunk($allIds, 250);
+        $mergedNodes = [];
+        $lastResult = [];
+
+        foreach ($batches as $batch) {
+            $currentVariables = $variables;
+            $currentVariables[$idsKey] = $batch;
+            
+            // Call graphql recursively (it will skip batching logic since count is <= 250)
+            $result = $this->graphql($query, $currentVariables);
+            
+            if (isset($result['nodes']) && is_array($result['nodes'])) {
+                $mergedNodes = array_merge($mergedNodes, $result['nodes']);
+            }
+            
+            $lastResult = $result;
+        }
+
+        if (!empty($mergedNodes)) {
+            $lastResult['nodes'] = $mergedNodes;
+        }
+
+        return $lastResult;
     }
 
     public function getShopDomain(): ?string
