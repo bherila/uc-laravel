@@ -107,6 +107,11 @@ class ShopifyWebhookController extends Controller
                 return response()->json(['error' => 'HMAC verification failed'], 401);
             }
 
+            if (!$shop->admin_api_token) {
+                $webhook->update(['error_ts' => now(), 'error_message' => 'Shop admin_api_token is missing']);
+                return response()->json(['error' => 'Shop access token missing'], 401);
+            }
+
             // Handle order_edit webhook
             if (isset($webhookData['order_edit'])) {
                 $orderEditId = $webhookData['order_edit']['order_id'] ?? null;

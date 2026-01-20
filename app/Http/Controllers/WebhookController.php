@@ -49,7 +49,7 @@ class WebhookController extends Controller
 
     public function rerun(int $id, Request $request): JsonResponse
     {
-        $originalWebhook = Webhook::findOrFail($id);
+        $originalWebhook = Webhook::with(['shop'])->findOrFail($id);
 
         // Create a new request with the original payload and headers
         // We can't easily mock the full request object to pass to controller directly if it relies on specific request properties
@@ -59,7 +59,10 @@ class WebhookController extends Controller
         // Constructing request is better to avoid network roundtrip and auth issues.
         
         $payload = $originalWebhook->payload;
-        $headers = json_decode($originalWebhook->headers, true) ?? [];
+        $headers = $originalWebhook->headers;
+        if (is_string($headers)) {
+            $headers = json_decode($headers, true) ?? [];
+        }
         
         // Create new request
         // $request->getContent() returns the raw body. 
@@ -72,7 +75,7 @@ class WebhookController extends Controller
             [], // cookies
             [], // files
             [], // server
-            $payload
+            is_array($payload) ? json_encode($payload) : $payload
         );
         
         // Set headers
@@ -83,6 +86,15 @@ class WebhookController extends Controller
                 $value = $value[0] ?? '';
             }
             $newRequest->headers->set($key, $value);
+        }
+
+        // Ensure X-Shopify-Shop-Domain is set if we have a shop_id but header is missing
+        if (!$newRequest->header('X-Shopify-Shop-Domain') && $originalWebhook->shop) {
+            $newRequest->headers->set('X-Shopify-Shop-Domain', $originalWebhook->shop->shop_domain);
+        }
+
+        if ($originalWebhook->shopify_topic) {
+            $newRequest->headers->set('X-Shopify-Topic', $originalWebhook->shopify_topic);
         }
 
         // We also want to record that this is a rerun.
