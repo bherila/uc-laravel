@@ -27,7 +27,7 @@ class AuditLogController extends Controller
         $perPage = 25;
 
         $query = AuditLog::query()
-            ->where('created_at', '>=', now()->subDays(7));
+            ->where('event_ts', '>=', now()->subDays(7));
 
         if ($search) {
             $query->where(function ($q) use ($search) {

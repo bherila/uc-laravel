@@ -14,7 +14,7 @@ import { AuditLogPagination } from '@/components/AuditLogPagination';
 
 interface AuditLog {
   id: number;
-  created_at: string;
+  event_ts: string;
   source: string;
   event_name: string;
   event_ext: string | null;
@@ -183,7 +183,7 @@ function AdminAuditLogsPage() {
                   <TableRow key={log.id}>
                     <TableCell>{log.id}</TableCell>
                     <TableCell className="text-xs text-gray-500 whitespace-nowrap">
-                      {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
+                      {format(new Date(log.event_ts), 'MMM d, HH:mm:ss')}
                     </TableCell>
                     <TableCell className="text-sm font-medium">{log.source}</TableCell>
                     <TableCell className="text-sm">{log.event_name}</TableCell>
