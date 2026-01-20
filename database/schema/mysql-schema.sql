@@ -14,7 +14,7 @@ CREATE TABLE `2023_05_31_inventory` (
   `cost_basis_unit` decimal(6,2) DEFAULT NULL,
   `srp_unit` decimal(7,2) DEFAULT NULL,
   PRIMARY KEY (`sku`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `20251106_deduped_new_variant_ids`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -44,17 +44,39 @@ CREATE TABLE `20251106_v3_offer_manifest` (
   KEY `manifest_v2_offer_id_assign_order_index` (`offer_id`,`assignment_ordering`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `cache`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cache` (
+  `key` varchar(255) NOT NULL,
+  `value` mediumtext NOT NULL,
+  `expiration` int(11) NOT NULL,
+  PRIMARY KEY (`key`),
+  KEY `cache_expiration_index` (`expiration`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `cache_locks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cache_locks` (
+  `key` varchar(255) NOT NULL,
+  `owner` varchar(255) NOT NULL,
+  `expiration` int(11) NOT NULL,
+  PRIMARY KEY (`key`),
+  KEY `cache_locks_expiration_index` (`expiration`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `computed_buyer_varietals`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `computed_buyer_varietals` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `winner_guid` char(36) NOT NULL,
-  `cola_varietal` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `cola_varietal` varchar(50) NOT NULL,
   `total_paid` decimal(19,5) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `cola_varietal` (`cola_varietal`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci COMMENT='select winner_guid, cola_varietal, sum(tax_value) total_paid from cloud_view where cola_varietal != ''@virtual'' and cola_varietal != ''@gift'' group by winner_guid, winner_email, cola_varietal';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `customer_list_july_2023`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -62,12 +84,12 @@ DROP TABLE IF EXISTS `customer_list_july_2023`;
 CREATE TABLE `customer_list_july_2023` (
   `customer_name` varchar(34) DEFAULT NULL,
   `email` varchar(58) NOT NULL,
-  `orders` int(4) DEFAULT NULL,
+  `orders` int(11) DEFAULT NULL,
   `ltv` decimal(8,2) DEFAULT NULL,
   `first_order` varchar(16) DEFAULT NULL,
   `last_order` varchar(16) DEFAULT NULL,
   PRIMARY KEY (`email`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `item_detail`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -98,13 +120,13 @@ CREATE TABLE `item_detail` (
   `is_sparkling` char(1) DEFAULT NULL,
   `is_cult` char(1) DEFAULT NULL,
   `is_small_production` char(1) DEFAULT NULL,
-  `ct_wine_id` int(7) DEFAULT NULL,
+  `ct_wine_id` int(11) DEFAULT NULL,
   `ct_producer_id` int(11) DEFAULT NULL,
   `ct_likes` int(11) DEFAULT NULL,
   `ct_tasting_notes` int(11) DEFAULT NULL,
-  `ct_review` int(111) DEFAULT NULL,
+  `ct_review` int(11) DEFAULT NULL,
   `ct_community_score` varchar(20) DEFAULT NULL,
-  `ct_qty` int(1) DEFAULT NULL,
+  `ct_qty` int(11) DEFAULT NULL,
   `wine_vineyard` varchar(50) DEFAULT NULL,
   `wine_web_url` varchar(512) DEFAULT NULL,
   `wine_drink_start` varchar(20) DEFAULT NULL,
@@ -127,19 +149,19 @@ CREATE TABLE `item_detail` (
   KEY `cola_varietal` (`cola_varietal`),
   KEY `cola_appellation` (`cola_appellation`),
   KEY `cola_region` (`cola_region`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `item_sku`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `item_sku` (
-  `sku` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  `sku` varchar(255) NOT NULL,
   `srp` decimal(10,2) DEFAULT NULL,
   `is_autographed` tinyint(1) DEFAULT NULL,
   `is_taxable` tinyint(1) DEFAULT NULL,
   `is_counted_for_shipment` tinyint(1) DEFAULT NULL,
   `drink_by_date` timestamp NULL DEFAULT NULL,
-  `sku_itemdetail_guid` tinytext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `sku_itemdetail_guid` text DEFAULT NULL,
   `index` int(11) DEFAULT NULL,
   `last_order_date` datetime DEFAULT NULL,
   `last_restock` datetime DEFAULT NULL,
@@ -147,48 +169,63 @@ CREATE TABLE `item_sku` (
   `last_stock_qty` int(11) NOT NULL DEFAULT 0,
   `next_delivery_date` timestamp NULL DEFAULT NULL,
   `last_count_owed` int(11) NOT NULL DEFAULT 0,
-  `x_friendly_name` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `scramble_letters` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `x_friendly_name` varchar(255) DEFAULT NULL,
+  `scramble_letters` varchar(255) DEFAULT NULL,
   `scramble_qty_allowed` int(11) NOT NULL DEFAULT 0,
-  `sku_allowed_states` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `comment` text CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `sku_tsv` text CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `sku_allowed_states` varchar(255) DEFAULT NULL,
+  `comment` mediumtext DEFAULT NULL,
+  `sku_tsv` mediumtext DEFAULT NULL,
   `sku_cogs_unit` decimal(10,2) NOT NULL DEFAULT 0.00,
   `is_pallet_program` tinyint(1) NOT NULL DEFAULT 0,
   `is_deprecated` tinyint(1) DEFAULT NULL,
-  `sku_varietal` tinytext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `sku_region` tinytext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `sku_varietal` text DEFAULT NULL,
+  `sku_region` text DEFAULT NULL,
   `last_count_shipped` int(11) NOT NULL DEFAULT 0,
   `is_in_wd` tinyint(1) NOT NULL DEFAULT 0,
   `sku_was_swap` tinyint(1) NOT NULL DEFAULT 0,
   `sku_sort` int(11) NOT NULL DEFAULT 0,
-  `sku_preswap` text CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `sku_postswap` text CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `sku_preswap` mediumtext DEFAULT NULL,
+  `sku_postswap` mediumtext DEFAULT NULL,
   `sku_qty_reserved` int(11) DEFAULT 0,
   `sku_cogs_is_estimated` tinyint(1) NOT NULL DEFAULT 0,
-  `sku_taxset_id` tinytext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `sku_taxset_id` text DEFAULT NULL,
   `qty_offsite` int(11) NOT NULL DEFAULT 0,
-  `sku_external_id` varchar(32) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `sku_fq_lo` int(11) NOT NULL DEFAULT 0 COMMENT 'Fullfillment qty threshold min',
-  `sku_fq_hi` int(11) NOT NULL DEFAULT 35 COMMENT 'Fullfillment qty threshold max',
+  `sku_external_id` varchar(32) DEFAULT NULL,
+  `sku_fq_lo` int(11) NOT NULL DEFAULT 0,
+  `sku_fq_hi` int(11) NOT NULL DEFAULT 35,
   `sku_velocity` decimal(10,2) NOT NULL DEFAULT 0.00,
   `last_vip_qty` int(11) NOT NULL DEFAULT 0,
   `last_open_xfer_qty` int(11) NOT NULL DEFAULT 0,
   `sku_is_dropship` tinyint(1) NOT NULL DEFAULT 0,
   `sku_ship_alone` tinyint(1) NOT NULL DEFAULT 0,
-  `sku_supplier_guid` tinytext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `sku_supplier_guid` text DEFAULT NULL,
   `next_stock_update` datetime DEFAULT NULL,
   `sku_exclude_metrics` tinyint(1) DEFAULT 0,
   `netsuite_synced` datetime DEFAULT NULL,
-  `category` varchar(30) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `country_code` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `category` varchar(30) DEFAULT NULL,
+  `country_code` varchar(255) DEFAULT NULL,
   `unlimited_allocation_until` datetime DEFAULT NULL,
   `avg_purchase_price` decimal(10,2) DEFAULT NULL,
   `last_purchase_price` decimal(10,2) DEFAULT NULL,
   `dont_buy_after` datetime DEFAULT NULL,
   `pack_size` int(11) DEFAULT NULL,
   PRIMARY KEY (`sku`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `jobs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `jobs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `queue` varchar(255) NOT NULL,
+  `payload` longtext NOT NULL,
+  `attempts` tinyint(3) unsigned NOT NULL,
+  `reserved_at` int(10) unsigned DEFAULT NULL,
+  `available_at` int(10) unsigned NOT NULL,
+  `created_at` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `jobs_queue_index` (`queue`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `member_list_export_2023_07_06`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -206,7 +243,17 @@ CREATE TABLE `member_list_export_2023_07_06` (
   `Country` varchar(24) DEFAULT NULL,
   `Zip Code` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`Klaviyo ID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `migrations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `migrations` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `migration` varchar(255) NOT NULL,
+  `batch` int(11) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `new_customer_data_after_bk_from_lcc`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -346,6 +393,31 @@ CREATE TABLE `order_lock` (
   PRIMARY KEY (`order_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `password_reset_tokens`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `password_reset_tokens` (
+  `email` varchar(255) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `sessions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sessions` (
+  `id` varchar(255) NOT NULL,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `payload` longtext NOT NULL,
+  `last_activity` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `sessions_user_id_index` (`user_id`),
+  KEY `sessions_last_activity_index` (`last_activity`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `shopify_product_variant`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -360,6 +432,27 @@ CREATE TABLE `shopify_product_variant` (
   `variantSku` varchar(191) NOT NULL,
   `variantWeight` varchar(191) DEFAULT NULL,
   PRIMARY KEY (`variantId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `shopify_shops`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `shopify_shops` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `shop_domain` varchar(255) NOT NULL,
+  `app_name` varchar(1024) DEFAULT NULL,
+  `admin_api_token` varchar(1024) DEFAULT NULL,
+  `api_version` varchar(1024) NOT NULL DEFAULT '2025-01',
+  `api_key` varchar(1024) DEFAULT NULL,
+  `api_secret_key` varchar(1024) DEFAULT NULL,
+  `webhook_version` varchar(1024) NOT NULL DEFAULT '2025-01',
+  `webhook_secret` varchar(1024) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `shopify_shops_shop_domain_unique` (`shop_domain`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `user_list`;
@@ -441,24 +534,48 @@ CREATE TABLE `user_list` (
   KEY `user_email` (`user_email`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `user_shop_accesses`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user_shop_accesses` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL,
+  `shopify_shop_id` bigint(20) unsigned NOT NULL,
+  `access_level` enum('read-only','read-write') NOT NULL DEFAULT 'read-only',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_shop_accesses_user_id_shopify_shop_id_unique` (`user_id`,`shopify_shop_id`),
+  KEY `user_shop_accesses_shopify_shop_id_foreign` (`shopify_shop_id`),
+  CONSTRAINT `user_shop_accesses_shopify_shop_id_foreign` FOREIGN KEY (`shopify_shop_id`) REFERENCES `shopify_shops` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `user_shop_accesses_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
-  `uid` bigint(20) NOT NULL AUTO_INCREMENT,
-  `email` varchar(50) NOT NULL,
-  `pw` varchar(100) DEFAULT NULL,
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `email` varchar(50) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci NOT NULL,
+  `email_verified_at` timestamp NULL DEFAULT NULL,
+  `password` varchar(100) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
+  `is_admin` tinyint(1) NOT NULL DEFAULT 0,
+  `pw` varchar(100) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `salt` bigint(20) NOT NULL DEFAULT 0,
-  `alias` varchar(50) DEFAULT NULL,
+  `alias` varchar(50) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
+  `last_login_at` timestamp NULL DEFAULT NULL,
+  `remember_token` varchar(100) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
   `ax_maxmin` tinyint(1) NOT NULL DEFAULT 0,
   `ax_homes` tinyint(1) DEFAULT 0,
   `ax_tax` tinyint(1) NOT NULL DEFAULT 0,
   `ax_evdb` tinyint(1) DEFAULT 0,
   `ax_spgp` tinyint(1) NOT NULL DEFAULT 0,
   `ax_uc` tinyint(1) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`uid`),
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
   UNIQUE KEY `users_pk` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `v3_audit_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -480,13 +597,17 @@ DROP TABLE IF EXISTS `v3_offer`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `v3_offer` (
   `offer_id` int(11) NOT NULL AUTO_INCREMENT,
+  `shop_id` bigint(20) unsigned DEFAULT NULL,
+  `is_archived` tinyint(1) NOT NULL DEFAULT 0,
   `offer_name` varchar(100) NOT NULL,
   `offer_variant_id` varchar(100) NOT NULL,
   `offer_product_name` varchar(200) NOT NULL DEFAULT '',
   PRIMARY KEY (`offer_id`),
   UNIQUE KEY `v3_offer_unique_name` (`offer_name`),
-  UNIQUE KEY `v3_offer_pk` (`offer_variant_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+  UNIQUE KEY `v3_offer_pk` (`offer_variant_id`),
+  KEY `v3_offer_shop_id_foreign` (`shop_id`),
+  CONSTRAINT `v3_offer_shop_id_foreign` FOREIGN KEY (`shop_id`) REFERENCES `shopify_shops` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `v3_offer_manifest`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -494,22 +615,82 @@ DROP TABLE IF EXISTS `v3_offer_manifest`;
 CREATE TABLE `v3_offer_manifest` (
   `m_id` bigint(20) NOT NULL AUTO_INCREMENT,
   `offer_id` bigint(20) NOT NULL,
-  `mf_variant` varchar(50) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  `assignee_id` varchar(50) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `mf_variant` varchar(50) NOT NULL,
+  `assignee_id` varchar(50) DEFAULT NULL,
   `assignment_ordering` float NOT NULL,
   PRIMARY KEY (`m_id`),
   KEY `manifest_v2_offer_id_assign_order_index` (`offer_id`,`assignment_ordering`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `v3_offer_manifest_exp`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `v3_offer_manifest_exp` (
+  `m_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `offer_id` bigint(20) NOT NULL,
+  `mf_variant` bigint(20) NOT NULL,
+  `assignee_id` bigint(20) DEFAULT NULL,
+  `assignment_ordering` float NOT NULL,
+  PRIMARY KEY (`m_id`),
+  KEY `manifest_v2_offer_id_assign_order_index` (`offer_id`,`assignment_ordering`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `v3_order_to_variant`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `v3_order_to_variant` (
-  `order_id` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  `variant_id` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `order_id` varchar(100) NOT NULL,
+  `variant_id` varchar(100) NOT NULL,
   `offer_id` int(11) DEFAULT NULL,
   UNIQUE KEY `v3_order_to_variant_variant_id_order_id_uindex` (`variant_id`,`order_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `v3_order_to_variant_exp`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `v3_order_to_variant_exp` (
+  `order_id` bigint(20) DEFAULT NULL,
+  `variant_id` bigint(20) DEFAULT NULL,
+  `offer_id` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `webhook_subs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `webhook_subs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `webhook_id` bigint(20) unsigned NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `event` text DEFAULT NULL,
+  `time_taken_ms` int(11) DEFAULT NULL,
+  `shopify_request` text DEFAULT NULL,
+  `shopify_response` text DEFAULT NULL,
+  `shopify_response_code` int(11) DEFAULT NULL,
+  `offer_id` bigint(20) unsigned DEFAULT NULL,
+  `order_id` bigint(20) unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `webhook_subs_webhook_id_foreign` (`webhook_id`),
+  CONSTRAINT `webhook_subs_webhook_id_foreign` FOREIGN KEY (`webhook_id`) REFERENCES `webhooks` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `webhooks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `webhooks` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `rerun_of_id` bigint(20) unsigned DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `payload` text DEFAULT NULL,
+  `headers` text DEFAULT NULL,
+  `valid_hmac` tinyint(1) DEFAULT NULL,
+  `valid_shop_matched` tinyint(1) DEFAULT NULL,
+  `error_ts` timestamp NULL DEFAULT NULL,
+  `success_ts` timestamp NULL DEFAULT NULL,
+  `error_message` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 --
 -- WARNING: can't read the INFORMATION_SCHEMA.libraries table. It's most probably an old server 5.5.5-10.6.24-MariaDB.
@@ -521,3 +702,15 @@ CREATE TABLE `v3_order_to_variant` (
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (1,'2026_01_17_065914_update_users_table_for_laravel_auth',1);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (2,'2026_01_17_071659_create_sessions_table',1);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (3,'2026_01_17_073317_add_last_login_at_to_users_table',2);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (4,'2026_01_17_080205_create_cache_table',3);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (6,'2026_01_17_091808_create_shopify_shops_table',4);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (7,'2026_01_17_091812_create_user_shop_accesses_table',5);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (8,'2026_01_17_091816_remove_deprecated_user_fields_and_add_is_admin',5);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (9,'2026_01_17_091820_add_shop_id_to_offers_table',5);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (10,'2026_01_20_040740_create_jobs_table',6);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (11,'2026_01_20_062828_create_webhooks_tables',7);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (12,'2026_01_20_065704_add_time_taken_ms_to_webhook_subs_table',8);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (13,'2026_01_20_080132_add_is_archived_to_v3_offer_table',9);
