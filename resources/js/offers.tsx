@@ -11,6 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import RenderRelativeTimeInterval from '@/components/RenderRelativeTimeInterval';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 
 interface OfferProductData {
   variantId: string;
@@ -32,6 +40,7 @@ interface Offer {
     name: string;
     shop_domain: string;
   };
+  is_archived: boolean;
   offerProductData?: OfferProductData;
 }
 
@@ -51,6 +60,7 @@ function OfferListPage() {
   const [shopifyData, setShopifyData] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<'active' | 'archived'>('active');
   
   const rootEl = document.getElementById('offers-root');
   const apiBase = rootEl?.dataset.apiBase || '/api';
@@ -58,13 +68,13 @@ function OfferListPage() {
 
   const fetchOffers = useCallback(async () => {
     try {
-      const data = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers`);
+      const data = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers?status=${status}`);
       setOffers(data);
     } catch (err) {
       setError('Failed to load offers');
       console.error(err);
     }
-  }, [apiBase, shopId]);
+  }, [apiBase, shopId, status]);
 
   const fetchShopifyData = useCallback(async () => {
     try {
@@ -76,6 +86,7 @@ function OfferListPage() {
   }, [apiBase, shopId]);
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([fetchOffers(), fetchShopifyData()]).finally(() => setLoading(false));
   }, [fetchOffers, fetchShopifyData]);
 
@@ -89,6 +100,24 @@ function OfferListPage() {
       fetchOffers();
     } catch (err: any) {
       alert(err?.error || 'Failed to delete offer');
+    }
+  };
+
+  const archiveOffer = async (id: number) => {
+    try {
+      await fetchWrapper.post(`${apiBase}/shops/${shopId}/offers/${id}/archive`, {});
+      fetchOffers();
+    } catch (err: any) {
+      alert(err?.error || 'Failed to archive offer');
+    }
+  };
+
+  const unarchiveOffer = async (id: number) => {
+    try {
+      await fetchWrapper.post(`${apiBase}/shops/${shopId}/offers/${id}/unarchive`, {});
+      fetchOffers();
+    } catch (err: any) {
+      alert(err?.error || 'Failed to unarchive offer');
     }
   };
 
@@ -138,10 +167,23 @@ function OfferListPage() {
         shopName={shopName} 
       />
 
-      <div className="mb-4">
+      <div className="mb-4 flex justify-between items-center">
         <Button asChild>
           <a href={`/shop/${shopId}/offers/new`}>Create New Offer</a>
         </Button>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">View:</span>
+          <Select value={status} onValueChange={(val: any) => setStatus(val)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active Offers</SelectItem>
+              <SelectItem value="archived">Archived Offers</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="rounded-md border">
         <Table>
@@ -151,74 +193,93 @@ function OfferListPage() {
               <TableHead>Offer Name</TableHead>
               <TableHead>Deal SKU</TableHead>
               <TableHead>Date from Metafield</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right w-[100px]">&nbsp;</TableHead>
+              <TableHead className="text-right w-[120px]">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {offers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No offers found. Create one to get started.
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  {status === 'active' ? 'No offers found. Create one to get started.' : 'No archived offers found.'}
                 </TableCell>
               </TableRow>
             ) : (
-              offers.map((offer) => (
-                <TableRow key={offer.offer_id}>
-                  <TableCell className="font-mono text-sm">{offer.offer_id}</TableCell>
-                  <TableCell>
-                    <a 
-                      href={`/shop/${shopId}/offers/${offer.offer_id}`}
-                      className="hover:underline font-medium"
-                    >
-                      {offer.offer_name}
-                    </a>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm">{getProductName(offer)}</span>
-                      {offer.offerProductData?.variantId && (
-                        <VariantLink
-                          variantId={offer.offerProductData.variantId}
-                          productId={offer.offerProductData.productId}
-                          shopDomain={offer.shop?.shop_domain}
-                        />
-                      )}
-                      <div className="flex flex-wrap gap-1">
-                        {(offer.offerProductData?.tags ?? []).map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    <RenderRelativeTimeInterval
-                      startDate={offer.offerProductData?.startDate}
-                      endDate={offer.offerProductData?.endDate}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {offer.offerProductData?.status && (
-                      <Badge 
-                        variant={offer.offerProductData.status === 'ACTIVE' ? 'default' : 'secondary'}
+              offers.map((offer) => {
+                const hasEnded = offer.offerProductData?.endDate 
+                    ? new Date(offer.offerProductData.endDate) < new Date()
+                    : false;
+
+                return (
+                  <TableRow key={offer.offer_id}>
+                    <TableCell className="font-mono text-sm">{offer.offer_id}</TableCell>
+                    <TableCell>
+                      <a 
+                        href={`/shop/${shopId}/offers/${offer.offer_id}`}
+                        className="hover:underline font-medium"
                       >
-                        {offer.offerProductData.status}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button 
-                      variant="destructive" 
-                      size="sm" 
-                      onClick={() => deleteOffer(offer.offer_id)}
-                    >
-                      Delete
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
+                        {offer.offer_name}
+                      </a>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm">{getProductName(offer)}</span>
+                        {offer.offerProductData?.variantId && (
+                          <VariantLink
+                            variantId={offer.offerProductData.variantId}
+                            productId={offer.offerProductData.productId}
+                            shopDomain={offer.shop?.shop_domain}
+                          />
+                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {(offer.offerProductData?.tags ?? []).map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <RenderRelativeTimeInterval
+                        startDate={offer.offerProductData?.startDate}
+                        endDate={offer.offerProductData?.endDate}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {offer.is_archived ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => unarchiveOffer(offer.offer_id)}
+                          >
+                            <ArchiveRestore className="w-4 h-4 mr-1" />
+                            Unarchive
+                          </Button>
+                        ) : hasEnded ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => archiveOffer(offer.offer_id)}
+                          >
+                            <Archive className="w-4 h-4 mr-1" />
+                            Archive
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={() => deleteOffer(offer.offer_id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

@@ -22,17 +22,24 @@ class OfferService
      * Load all offers with their Shopify product data
      *
      * @param int|null $shopId Filter by shop ID if provided
+     * @param string|null $status Filter by archived status ('active', 'archived')
      * @return array{offerListItems: array, offerProductData: array}
      */
-    public function loadOfferList(?int $shopId = null): array
+    public function loadOfferList(?int $shopId = null, ?string $status = 'active'): array
     {
         $query = Offer::with('shop:id,name,shop_domain')->orderBy('offer_id', 'desc');
         
         if ($shopId !== null) {
             $query->where('shop_id', $shopId);
         }
+
+        if ($status === 'archived') {
+            $query->where('is_archived', true);
+        } else {
+            $query->where('is_archived', false);
+        }
         
-        $offers = $query->get(['offer_id', 'offer_name', 'offer_variant_id', 'shop_id']);
+        $offers = $query->get(['offer_id', 'offer_name', 'offer_variant_id', 'shop_id', 'is_archived']);
 
         $variantIds = $offers->pluck('offer_variant_id')->toArray();
         $offerProductData = $this->shopifyProductService->getProductDataByVariantIds($variantIds);
@@ -45,6 +52,7 @@ class OfferService
                 'offer_name' => $offer->offer_name,
                 'shop_id' => $offer->shop_id,
                 'shop' => $offer->shop,
+                'is_archived' => $offer->is_archived,
                 'offerProductData' => $productData ? [
                     ...$productData,
                     'variantId' => $offer->offer_variant_id,
@@ -56,6 +64,18 @@ class OfferService
             'offerListItems' => $offerListItems,
             'offerProductData' => $offerProductData,
         ];
+    }
+
+    /**
+     * Archive or unarchive an offer
+     *
+     * @param int $offerId
+     * @param bool $isArchived
+     * @return void
+     */
+    public function setArchived(int $offerId, bool $isArchived): void
+    {
+        Offer::where('offer_id', $offerId)->update(['is_archived' => $isArchived]);
     }
 
     /**

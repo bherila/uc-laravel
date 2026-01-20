@@ -39,9 +39,30 @@ class OfferController extends Controller
      */
     public function index(Request $request, int $shop): JsonResponse
     {
+        $status = $request->query('status', 'active');
         $offerService = $this->makeOfferService($request);
-        $result = $offerService->loadOfferList($shop);
+        $result = $offerService->loadOfferList($shop, $status);
         return response()->json($result['offerListItems']);
+    }
+
+    /**
+     * Archive an offer
+     */
+    public function archive(Request $request, int $shop, int $offer): JsonResponse
+    {
+        $offerService = $this->makeOfferService($request);
+        $offerService->setArchived($offer, true);
+        return response()->json(['message' => 'Offer archived']);
+    }
+
+    /**
+     * Unarchive an offer
+     */
+    public function unarchive(Request $request, int $shop, int $offer): JsonResponse
+    {
+        $offerService = $this->makeOfferService($request);
+        $offerService->setArchived($offer, false);
+        return response()->json(['message' => 'Offer unarchived']);
     }
 
     /**

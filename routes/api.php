@@ -31,6 +31,8 @@ Route::middleware(['auth', 'shop.access'])->prefix('shops/{shop}')->group(functi
     Route::post('offers', [OfferController::class, 'store'])->middleware('shop.access:write');
     Route::get('offers/{offer}', [OfferController::class, 'show']);
     Route::delete('offers/{offer}', [OfferController::class, 'destroy'])->middleware('shop.access:write');
+    Route::post('offers/{offer}/archive', [OfferController::class, 'archive'])->middleware('shop.access:write');
+    Route::post('offers/{offer}/unarchive', [OfferController::class, 'unarchive'])->middleware('shop.access:write');
     Route::get('offers/{offer}/metafields', [OfferController::class, 'metafields']);
     Route::get('offers/{offer}/orders', [OfferController::class, 'orders']);
 

@@ -16,6 +16,7 @@ class Offer extends Model
 
     protected $casts = [
         'shop_id' => 'integer',
+        'is_archived' => 'boolean',
     ];
 
     /**

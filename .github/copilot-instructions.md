@@ -112,8 +112,10 @@ Defined in [routes/api.php](routes/api.php):
 - `GET /api/shops` - List accessible shops for current user
 
 ### Offers (shop-scoped)
-- `GET/POST /api/shops/{shop}/offers` - List/create offers
+- `GET/POST /api/shops/{shop}/offers` - List/create offers (list supports `?status=active|archived`)
 - `GET/DELETE /api/shops/{shop}/offers/{id}` - Get/delete (use `?detail=1` for manifests)
+- `POST /api/shops/{shop}/offers/{id}/archive` - Archive an offer (only if ended)
+- `POST /api/shops/{shop}/offers/{id}/unarchive` - Unarchive an offer
 - `GET /api/shops/{shop}/offers/{id}/metafields` - Update and return Shopify metafields
 - `GET /api/shops/{shop}/offers/{id}/orders` - Get orders with manifest allocations
 
@@ -203,6 +205,8 @@ The `ShopifyProductService` implements a robust caching strategy to minimize API
 
 ### Offer List ([resources/js/offers.tsx](resources/js/offers.tsx))
 - Lists offers with Shopify product data
+- Filter by Active vs Archived status
+- Actions: Delete (if not ended), Archive (if ended), Unarchive (if archived)
 - Links to detail page, delete action
 
 ### Offer Detail ([resources/js/offer-detail.tsx](resources/js/offer-detail.tsx))
