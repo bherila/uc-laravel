@@ -165,67 +165,83 @@ function ShopifyManifestsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead className="text-center">Purchased</TableHead>
                 <TableHead className="text-center">Upgrades</TableHead>
+                <TableHead className="text-center">Consumer Surplus</TableHead>
                 <TableHead>Upgrade Items</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.orders.map((order) => (
-                <TableRow key={order.id} className={!order.isQtyEqual ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}>
-                  <TableCell>
-                    <a
-                      href={getShopifyOrderUrl(order.id, data.shop?.shop_domain)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-sm hover:underline flex items-center gap-1"
-                    >
-                      {order.id.replace('gid://shopify/Order/', '#')}
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {formatDistanceToNow(parseISO(order.createdAt), { addSuffix: true })}
-                  </TableCell>
-                  <TableCell className="text-sm truncate max-w-[200px]">{order.email}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        order.cancelledAt
-                          ? 'destructive'
-                          : order.displayFinancialStatus === 'PAID'
-                            ? 'default'
-                            : 'secondary'
-                      }
-                      className={
-                        !order.cancelledAt && order.displayFinancialStatus === 'PAID'
-                          ? 'bg-green-600 hover:bg-green-700 text-white border-transparent'
-                          : ''
-                      }
-                    >
-                      {order.cancelledAt ? 'CANCELLED' : order.displayFinancialStatus}
-                    </Badge>
-                    {!order.isQtyEqual && (
-                      <Badge variant="outline" className="ml-2">
-                        QTY MISMATCH
+              {data.orders.map((order) => {
+                const surplus = order.upgradeValue - order.purchasedValue;
+                const surplusPercent = order.purchasedValue > 0 
+                  ? ((order.upgradeValue / order.purchasedValue) - 1) * 100 
+                  : 0;
+
+                return (
+                  <TableRow key={order.id} className={!order.isQtyEqual ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}>
+                    <TableCell>
+                      <a
+                        href={getShopifyOrderUrl(order.id, data.shop?.shop_domain)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-sm hover:underline flex items-center gap-1"
+                      >
+                        {order.id.replace('gid://shopify/Order/', '#')}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {formatDistanceToNow(parseISO(order.createdAt), { addSuffix: true })}
+                    </TableCell>
+                    <TableCell className="text-sm truncate max-w-[200px]">{order.email}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          order.cancelledAt
+                            ? 'destructive'
+                            : order.displayFinancialStatus === 'PAID'
+                              ? 'default'
+                              : 'secondary'
+                        }
+                        className={
+                          !order.cancelledAt && order.displayFinancialStatus === 'PAID'
+                            ? 'bg-green-600 hover:bg-green-700 text-white border-transparent'
+                            : ''
+                        }
+                      >
+                        {order.cancelledAt ? 'CANCELLED' : order.displayFinancialStatus}
                       </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="font-medium">{order.purchasedQty} btl</div>
-                    <div className="text-xs text-muted-foreground">{formatCurrency(order.purchasedValue)}</div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="font-medium">{order.upgradeQty} btl</div>
-                    <div className="text-xs text-muted-foreground">{formatCurrency(order.upgradeValue)}</div>
-                  </TableCell>
-                  <TableCell className="text-xs max-w-[300px]">
-                    {order.upgradeItems.map((item, i) => (
-                      <div key={item.line_item_id} className="truncate">
-                        {item.title} x{item.currentQuantity}
+                      {!order.isQtyEqual && (
+                        <Badge variant="outline" className="ml-2">
+                          QTY MISMATCH
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="font-medium">{order.purchasedQty} btl</div>
+                      <div className="text-xs text-muted-foreground">{formatCurrency(order.purchasedValue)}</div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="font-medium">{order.upgradeQty} btl</div>
+                      <div className="text-xs text-muted-foreground">{formatCurrency(order.upgradeValue)}</div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="font-medium text-green-600 dark:text-green-400">
+                        {formatCurrency(surplus)}
                       </div>
-                    ))}
-                  </TableCell>
-                </TableRow>
-              ))}
+                      <div className="text-xs text-muted-foreground">
+                        {surplusPercent > 0 ? '+' : ''}{surplusPercent.toFixed(0)}%
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs max-w-[300px]">
+                      {order.upgradeItems.map((item, i) => (
+                        <div key={item.line_item_id} className="truncate">
+                          {item.currentQuantity}x {item.title}
+                        </div>
+                      ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
