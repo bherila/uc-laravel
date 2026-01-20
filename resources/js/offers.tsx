@@ -65,7 +65,6 @@ interface PaginatedResponse<T> {
 
 function OfferListPage() {
   const [data, setData] = useState<PaginatedResponse<Offer> | null>(null);
-  const [shopifyData, setShopifyData] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<'active' | 'archived'>('active');
@@ -108,22 +107,9 @@ function OfferListPage() {
     }
   }, [apiBase, shopId]);
 
-  const fetchShopifyData = useCallback(async () => {
-    try {
-      const data = await fetchWrapper.get(`${apiBase}/shops/${shopId}/shopify/products?type=deal`);
-      setShopifyData(data);
-    } catch (err) {
-      console.error('Failed to load Shopify data:', err);
-    }
-  }, [apiBase, shopId]);
-
   useEffect(() => {
     fetchOffers(page, status);
   }, [page, status, fetchOffers]);
-
-  useEffect(() => {
-    fetchShopifyData();
-  }, [fetchShopifyData]);
 
   const deleteOffer = async (id: number) => {
     if (!confirm('Are you sure you want to delete this offer? This will also delete any unassigned manifests.')) {
@@ -175,8 +161,7 @@ function OfferListPage() {
   };
 
   const getProductName = (offer: Offer): string => {
-    const shopifyProduct = shopifyData.find(d => d.variantId === offer.offerProductData?.variantId);
-    return shopifyProduct?.productName || offer.offerProductData?.title || '-';
+    return offer.offerProductData?.title || '-';
   };
 
   const shopName = data?.data[0]?.shop?.name || 'Loading...';
