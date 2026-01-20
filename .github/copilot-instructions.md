@@ -135,6 +135,7 @@ Defined in [routes/api.php](routes/api.php):
 - `GET /api/admin/webhooks` - List webhooks
 - `GET /api/admin/webhooks/{id}` - Get details
 - `POST /api/admin/webhooks/{id}/rerun` - Re-run webhook
+- `GET /api/admin/audit-logs` - List and search audit logs
 
 ## Frontend Patterns
 
@@ -185,6 +186,12 @@ Each page follows this pattern:
 - Lists all incoming webhooks with status badges.
 - Detail page shows payload, headers, and execution logs (webhook_sub events).
 - Re-run functionality creates a new webhook record linked to the original.
+
+### Audit Log Management ([resources/js/admin-audit-logs.tsx](resources/js/admin-audit-logs.tsx))
+- Labeled "Audit Log" in navbar.
+- Paginated list of system events (event name, user ID, timestamp).
+- Searchable by event name, details, order ID, or offer ID.
+- Detailed view using `AuditLogDetailCell`: large JSON payloads are displayed in a modal dialog with copy-to-clipboard functionality to keep the table clean.
 
 ## Shopify Performance & Caching
 

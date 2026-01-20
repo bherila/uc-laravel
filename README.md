@@ -11,6 +11,7 @@ A multi-tenant Laravel-based web application for managing Underground Cellar win
 - **Manifest Allocation**: Add wine bottles to offers and track allocation to orders
 - **Order Processing**: Automatic order manifest allocation via Shopify webhooks
 - **Webhook Management**: Log, view, and re-run incoming Shopify webhooks with full payload inspection
+- **Audit Log Management**: View and search system event logs with detailed payload inspection
 - **Profitability Analysis**: Calculate margins, break-even scenarios, and sell-through projections
 - **Metafield Sync**: Automatically update Shopify product metafields with offer data
 - **Order Manifests**: View allocated orders and upgrade wine assignments
@@ -93,14 +94,15 @@ pnpm test
 ```
 app/
 ├── Http/
-│   ├── Controllers/            # API and web controllers
-│   │   ├── AdminController.php     # User and store admin management
-│   │   ├── ShopController.php      # Shop listing and dashboard
-│   │   ├── OfferController.php     # Offer CRUD (shop-scoped)
-│   │   ├── OfferManifestController.php
-│   │   ├── ShopifyController.php   # Product data and inventory (shop-scoped)
-│   │   ├── ShopifyWebhookController.php
-│   │   └── WebhookController.php
+    ├── Controllers/            # API and web controllers
+    │   ├── AdminController.php     # User and store admin management
+    │   ├── AuditLogController.php   # System event logging
+    │   ├── ShopController.php      # Shop listing and dashboard
+    │   ├── OfferController.php     # Offer CRUD (shop-scoped)
+    │   ├── OfferManifestController.php
+    │   ├── ShopifyController.php   # Product data and inventory (shop-scoped)
+    │   ├── ShopifyWebhookController.php
+    │   └── WebhookController.php
 │   └── Middleware/
 │       ├── EnsureAdmin.php         # Admin access enforcement
 │       └── EnsureShopAccess.php    # Shop access with read/write levels
@@ -128,6 +130,7 @@ resources/js/
 ├── admin-user-detail.tsx       # Admin user edit with shop access
 ├── admin-stores.tsx            # Admin store management
 ├── admin-store-detail.tsx      # Admin store edit with API credentials
+├── admin-audit-logs.tsx        # Admin system audit logs
 ├── offers.tsx                  # Shop-scoped offer list
 ├── offer-new.tsx               # Create new offer (shop-scoped)
 ├── offer-detail.tsx            # Offer detail with manifests
@@ -177,6 +180,7 @@ resources/js/
 - `GET /api/admin/webhooks` - List webhooks
 - `GET /api/admin/webhooks/{id}` - Get webhook details
 - `POST /api/admin/webhooks/{id}/rerun` - Re-run webhook
+- `GET /api/admin/audit-logs` - List and search audit logs
 
 ## Web Routes
 
@@ -203,6 +207,7 @@ resources/js/
 - `/admin/stores/{id}` - Store detail with API credentials
 - `/admin/webhooks` - Webhook log list
 - `/admin/webhooks/{id}` - Webhook detail and re-run
+- `/admin/audit-logs` - Audit log viewer
 
 ## Shopify Integration
 
