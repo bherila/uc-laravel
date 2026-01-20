@@ -3,12 +3,12 @@ import { ChevronRight } from 'lucide-react';
 
 interface Props {
   shopId: string | number;
-  shopName?: string;
+  shopName?: string | undefined;
   offer?: {
     id: string | number;
     name: string;
-  };
-  action?: string;
+  } | undefined;
+  action?: string | undefined;
 }
 
 export default function ShopOfferBreadcrumb({ shopId, shopName, offer, action }: Props) {

@@ -5,8 +5,8 @@ import Countdown from './Countdown'
 import { Badge } from '@/components/ui/badge'
 
 interface Props {
-  startDate?: string | null
-  endDate?: string | null
+  startDate?: string | null | undefined
+  endDate?: string | null | undefined
 }
 
 const RenderRelativeTimeInterval: React.FC<Props> = ({ startDate, endDate }) => {

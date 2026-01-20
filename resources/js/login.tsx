@@ -53,7 +53,6 @@ function Login() {
 
   const handleForgotPassword = () => {
     setShowResetDialog(true);
-    setResetStep(1);
     setResetEmail('');
     setResetError(null);
     setResetSuccess(null);

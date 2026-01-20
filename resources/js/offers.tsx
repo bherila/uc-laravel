@@ -97,11 +97,22 @@ function OfferListPage() {
     return shopifyProduct?.productName || offer.offerProductData?.title || '-';
   };
 
-  const getVariantLink = (offer: Offer): string => {
+  const getShopifyProductUrl = (offer: Offer): string => {
     const variantId = offer.offerProductData?.variantId;
     if (!variantId) return '#';
-    const numericId = variantId.replace('gid://shopify/ProductVariant/', '');
+
+    // Try to find productId in shopifyData or offerProductData
+    const shopifyProduct = shopifyData.find((d) => d.variantId === variantId);
+    const productId = shopifyProduct?.productId || offer.offerProductData?.productId;
+
     const shopSlug = offer.shop?.shop_domain?.replace('.myshopify.com', '') || 'underground-cellar';
+
+    if (productId) {
+      const numericId = productId.replace('gid://shopify/Product/', '');
+      return `https://admin.shopify.com/store/${shopSlug}/products/${numericId}`;
+    }
+
+    const numericId = variantId.replace('gid://shopify/ProductVariant/', '');
     return `https://admin.shopify.com/store/${shopSlug}/products/variants/${numericId}`;
   };
 
@@ -187,7 +198,7 @@ function OfferListPage() {
                       <span className="text-sm">{getProductName(offer)}</span>
                       {offer.offerProductData?.variantId && (
                         <a 
-                          href={getVariantLink(offer)}
+                          href={getShopifyProductUrl(offer)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-muted-foreground hover:underline font-mono flex items-center gap-1"

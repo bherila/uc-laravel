@@ -61,7 +61,7 @@ interface OfferDetail {
   };
   offerProductData: ProductData | null;
   manifestGroups: Record<string, ManifestGroup>;
-  manifestProductData: Record<string, ManifestGroup>;
+  manifestProductData: Record<string, ProductData>;
   hasOrders: boolean;
   orderCount: number;
   unassignedCount: number;
@@ -69,9 +69,25 @@ interface OfferDetail {
   deficit: number;
 }
 
-function VariantLink({ variantId, shopDomain }: { variantId: string; shopDomain?: string }) {
-  const numericId = variantId.replace('gid://shopify/ProductVariant/', '');
+function VariantLink({ variantId, shopDomain, productId }: { variantId: string; shopDomain?: string | undefined; productId?: string | undefined }) {
   const shopSlug = shopDomain?.replace('.myshopify.com', '') || 'underground-cellar';
+
+  if (productId) {
+    const numericId = productId.replace('gid://shopify/Product/', '');
+    return (
+      <a
+        href={`https://admin.shopify.com/store/${shopSlug}/products/${numericId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs text-muted-foreground hover:underline font-mono inline-flex items-center gap-1"
+      >
+        {variantId.replace('gid://shopify/ProductVariant/', '')}
+        <ExternalLink className="w-3 h-3" />
+      </a>
+    );
+  }
+
+  const numericId = variantId.replace('gid://shopify/ProductVariant/', '');
   return (
     <a
       href={`https://admin.shopify.com/store/${shopSlug}/products/variants/${numericId}`}
@@ -200,7 +216,12 @@ function OfferDetailPage() {
       />
 
       <p className="mb-4 text-sm text-muted-foreground">
-        Shopify product: <VariantLink variantId={offer.offer_variant_id} shopDomain={offer.shop?.shop_domain} />{' '}
+        Shopify product:{' '}
+        <VariantLink
+          variantId={offer.offer_variant_id}
+          shopDomain={offer.shop?.shop_domain}
+          productId={offer.offerProductData?.productId}
+        />{' '}
         ({offer.offerProductData?.title}), {offer.inventoryQty} inventory
         {weight !== 2 && weight !== 0 && (
           <Badge variant="destructive" className="ml-2">
@@ -308,7 +329,11 @@ function OfferDetailPage() {
                     <TableCell>
                       <div className="space-y-1">
                         <div className="font-medium">{product?.title ?? '??'}</div>
-                        <VariantLink variantId={variantId} shopDomain={offer.shop?.shop_domain} />
+                        <VariantLink
+                          variantId={variantId}
+                          shopDomain={offer.shop?.shop_domain}
+                          productId={product?.productId}
+                        />
                         {weight > 1 && (
                           <Badge variant="destructive" className="ml-2">
                             Weight should be zero
