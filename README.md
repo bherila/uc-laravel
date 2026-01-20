@@ -7,7 +7,7 @@ A multi-tenant Laravel-based web application for managing Underground Cellar win
 - **Multi-Tenant Architecture**: Support for multiple Shopify stores with per-store API credentials
 - **User Access Control**: Granular read-only or read-write access per user per store
 - **Admin Management**: Dedicated admin pages for managing users and stores
-- **Offer Management**: Create and manage wine offers with Shopify product integration
+- **Offer Management**: Create and manage wine offers with Shopify product integration and manifest tracking (offered vs allocated)
 - **Manifest Allocation**: Add wine bottles to offers and track allocation to orders
 - **Order Processing**: Automatic order manifest allocation via Shopify webhooks
 - **Webhook Management**: Log, view, and re-run incoming Shopify webhooks with full payload inspection
