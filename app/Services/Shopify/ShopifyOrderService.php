@@ -110,12 +110,10 @@ class ShopifyOrderService
                             }
                         }
                     }
-                    transactions(first: 10) {
-                        nodes {
-                            id
-                            status
-                            kind
-                        }
+                    transactions {
+                        id
+                        status
+                        kind
                     }
                 }
             }
@@ -221,7 +219,7 @@ class ShopifyOrderService
             }
 
             $transactions = [];
-            foreach ($node['transactions']['nodes'] ?? [] as $txn) {
+            foreach ($node['transactions'] ?? [] as $txn) {
                 $transactions[] = [
                     'id' => $txn['id'],
                     'status' => $txn['status'],
