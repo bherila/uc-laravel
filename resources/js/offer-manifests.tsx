@@ -195,6 +195,11 @@ function ShopifyManifestsPage() {
                             ? 'default'
                             : 'secondary'
                       }
+                      className={
+                        !order.cancelledAt && order.displayFinancialStatus === 'PAID'
+                          ? 'bg-green-600 hover:bg-green-700 text-white border-transparent'
+                          : ''
+                      }
                     >
                       {order.cancelledAt ? 'CANCELLED' : order.displayFinancialStatus}
                     </Badge>
