@@ -25,6 +25,7 @@ function ShopDashboardPage() {
   const rootEl = document.getElementById('shop-dashboard-root');
   const apiBase = rootEl?.dataset.apiBase || '/api';
   const shopId = rootEl?.dataset.shopId;
+  const isAdmin = rootEl?.dataset.isAdmin === 'true';
 
   const fetchShop = useCallback(async () => {
     try {
@@ -84,6 +85,11 @@ function ShopDashboardPage() {
         <Badge variant={shop.access_level === 'read-write' ? 'default' : 'outline'}>
           {shop.access_level}
         </Badge>
+        {isAdmin && (
+          <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+            Admin Mode
+          </Badge>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

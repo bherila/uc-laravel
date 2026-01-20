@@ -176,8 +176,11 @@ function ShopsPage() {
       <div className="flex items-center justify-between mb-6">
         <MainTitle>Shops</MainTitle>
         {isAdmin && (
-          <>
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <a href="/admin/users">Manage Users</a>
+            </Button>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
@@ -344,7 +347,7 @@ function ShopsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          </>
+          </div>
         )}
       </div>
       
