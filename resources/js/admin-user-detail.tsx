@@ -66,7 +66,7 @@ function AdminUserDetailPage() {
         email: data.email,
         alias: data.alias || '',
         password: '',
-        is_admin: data.is_admin,
+        is_admin: !!data.is_admin,
       });
       setShopAccesses(data.shop_accesses.map((a: ShopAccess) => ({
         shopify_shop_id: a.shopify_shop_id,

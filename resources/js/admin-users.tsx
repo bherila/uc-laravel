@@ -194,7 +194,7 @@ function AdminUsersPage() {
                   {user.alias || '-'}
                 </TableCell>
                 <TableCell>
-                  {user.is_admin || user.id === 1 ? (
+                  {!!user.is_admin || user.id === 1 ? (
                     <Badge className="gap-1">
                       <Shield className="w-3 h-3" />
                       Admin
