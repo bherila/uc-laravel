@@ -151,7 +151,7 @@ resources/js/
 - `GET /api/shops/{shop}/offers` - List all offers with Shopify product data (supports `?status=active|archived`)
 - `POST /api/shops/{shop}/offers` - Create new offer
 - `GET /api/shops/{shop}/offers/{id}` - Get offer details (add `?detail=1` for manifests)
-- `DELETE /api/shops/{shop}/offers/{id}` - Delete offer and unassigned manifests
+- `DELETE /api/shops/{shop}/offers/{id}` - Delete offer and unassigned manifests (fails if allocated manifests exist)
 - `POST /api/shops/{shop}/offers/{id}/archive` - Archive an offer
 - `POST /api/shops/{shop}/offers/{id}/unarchive` - Unarchive an offer
 - `GET /api/shops/{shop}/offers/{id}/metafields` - Update and get Shopify metafields

@@ -28,7 +28,11 @@ class OfferService
      */
     public function loadOfferList(?int $shopId = null, ?string $status = 'active', int $perPage = 25)
     {
-        $query = Offer::with('shop:id,name,shop_domain')->orderBy('offer_id', 'desc');
+        $query = Offer::with('shop:id,name,shop_domain')
+            ->withCount(['manifests as allocated_manifests_count' => function ($q) {
+                $q->whereNotNull('assignee_id');
+            }])
+            ->orderBy('offer_id', 'desc');
         
         if ($shopId !== null) {
             $query->where('shop_id', $shopId);
@@ -53,6 +57,7 @@ class OfferService
                 'shop_id' => $offer->shop_id,
                 'shop' => $offer->shop,
                 'is_archived' => $offer->is_archived,
+                'allocated_manifests_count' => (int) $offer->allocated_manifests_count,
                 'offerProductData' => $productData ? [
                     ...$productData,
                     'variantId' => $offer->offer_variant_id,
@@ -122,17 +127,19 @@ class OfferService
      */
     public function deleteOffer(int $offerId): void
     {
+        // Check for allocated manifests first
+        $allocatedCount = OfferManifest::where('offer_id', $offerId)
+            ->whereNotNull('assignee_id')
+            ->count();
+
+        if ($allocatedCount > 0) {
+            throw new \RuntimeException('Failed to delete offer due to allocated manifests');
+        }
+
         // Delete unassigned manifests
         OfferManifest::where('offer_id', $offerId)
             ->whereNull('assignee_id')
             ->delete();
-
-        // Check for remaining manifests
-        $remainingCount = OfferManifest::where('offer_id', $offerId)->count();
-
-        if ($remainingCount > 0) {
-            throw new \RuntimeException('Failed to delete offer due to allocated manifests');
-        }
 
         Offer::where('offer_id', $offerId)->delete();
     }

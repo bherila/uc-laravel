@@ -42,6 +42,7 @@ interface Offer {
     shop_domain: string;
   };
   is_archived: boolean;
+  allocated_manifests_count: number;
   offerProductData?: OfferProductData;
 }
 
@@ -351,7 +352,8 @@ function OfferListPage() {
                               variant="destructive" 
                               size="sm" 
                               onClick={() => deleteOffer(offer.offer_id)}
-                              disabled={isItemLoading}
+                              disabled={isItemLoading || offer.allocated_manifests_count > 0}
+                              title={offer.allocated_manifests_count > 0 ? "Cannot delete offer with allocated manifests" : ""}
                             >
                               {isItemLoading ? (
                                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />
