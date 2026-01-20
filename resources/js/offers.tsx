@@ -4,12 +4,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Container from '@/components/container';
 import MainTitle from '@/components/MainTitle';
 import ShopOfferBreadcrumb from '@/components/ShopOfferBreadcrumb';
+import VariantLink from '@/components/VariantLink';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
-import { Store, ArrowRight, ExternalLink } from 'lucide-react';
 import RenderRelativeTimeInterval from '@/components/RenderRelativeTimeInterval';
 
 interface OfferProductData {
@@ -97,25 +97,6 @@ function OfferListPage() {
     return shopifyProduct?.productName || offer.offerProductData?.title || '-';
   };
 
-  const getShopifyProductUrl = (offer: Offer): string => {
-    const variantId = offer.offerProductData?.variantId;
-    if (!variantId) return '#';
-
-    // Try to find productId in shopifyData or offerProductData
-    const shopifyProduct = shopifyData.find((d) => d.variantId === variantId);
-    const productId = shopifyProduct?.productId || offer.offerProductData?.productId;
-
-    const shopSlug = offer.shop?.shop_domain?.replace('.myshopify.com', '') || 'underground-cellar';
-
-    if (productId) {
-      const numericId = productId.replace('gid://shopify/Product/', '');
-      return `https://admin.shopify.com/store/${shopSlug}/products/${numericId}`;
-    }
-
-    const numericId = variantId.replace('gid://shopify/ProductVariant/', '');
-    return `https://admin.shopify.com/store/${shopSlug}/products/variants/${numericId}`;
-  };
-
   const shopName = offers[0]?.shop?.name || 'Loading...';
 
   if (loading) {
@@ -197,15 +178,11 @@ function OfferListPage() {
                     <div className="flex flex-col gap-1">
                       <span className="text-sm">{getProductName(offer)}</span>
                       {offer.offerProductData?.variantId && (
-                        <a 
-                          href={getShopifyProductUrl(offer)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-muted-foreground hover:underline font-mono flex items-center gap-1"
-                        >
-                          {offer.offerProductData.variantId.replace('gid://shopify/ProductVariant/', '')}
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
+                        <VariantLink
+                          variantId={offer.offerProductData.variantId}
+                          productId={offer.offerProductData.productId}
+                          shopDomain={offer.shop?.shop_domain}
+                        />
                       )}
                       <div className="flex flex-wrap gap-1">
                         {(offer.offerProductData?.tags ?? []).map((tag) => (

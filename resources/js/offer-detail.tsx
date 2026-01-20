@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Container from '@/components/container';
 import MainTitle from '@/components/MainTitle';
 import ShopOfferBreadcrumb from '@/components/ShopOfferBreadcrumb';
+import VariantLink from '@/components/VariantLink';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -67,38 +68,6 @@ interface OfferDetail {
   unassignedCount: number;
   inventoryQty: number;
   deficit: number;
-}
-
-function VariantLink({ variantId, shopDomain, productId }: { variantId: string; shopDomain?: string | undefined; productId?: string | undefined }) {
-  const shopSlug = shopDomain?.replace('.myshopify.com', '') || 'underground-cellar';
-
-  if (productId) {
-    const numericId = productId.replace('gid://shopify/Product/', '');
-    return (
-      <a
-        href={`https://admin.shopify.com/store/${shopSlug}/products/${numericId}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-xs text-muted-foreground hover:underline font-mono inline-flex items-center gap-1"
-      >
-        {variantId.replace('gid://shopify/ProductVariant/', '')}
-        <ExternalLink className="w-3 h-3" />
-      </a>
-    );
-  }
-
-  const numericId = variantId.replace('gid://shopify/ProductVariant/', '');
-  return (
-    <a
-      href={`https://admin.shopify.com/store/${shopSlug}/products/variants/${numericId}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-xs text-muted-foreground hover:underline font-mono inline-flex items-center gap-1"
-    >
-      {numericId}
-      <ExternalLink className="w-3 h-3" />
-    </a>
-  );
 }
 
 function OfferDetailPage() {
