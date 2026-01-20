@@ -79,5 +79,4 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 Route::post('shopify/webhook', [ShopifyWebhookController::class, 'handle'])
     ->withoutMiddleware([
         \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
-        \Illuminate\Session\Middleware\StartSession::class,
     ]);
