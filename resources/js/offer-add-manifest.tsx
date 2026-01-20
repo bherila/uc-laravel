@@ -196,7 +196,7 @@ function AddManifestPage() {
           <Button type="submit" disabled={!isValid || submitting}>
             {submitting ? 'Adding...' : 'Add to Offer'}
           </Button>
-          <Button type="button" variant="outline" onClick={() => (window.location.href = `/offers/${offerId}`)}>
+          <Button type="button" variant="outline" onClick={() => (window.location.href = `/shop/${shopId}/offers/${offerId}`)}>
             Cancel
           </Button>
         </div>

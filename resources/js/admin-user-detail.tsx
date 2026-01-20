@@ -110,9 +110,7 @@ function AdminUserDetailPage() {
         shop_accesses: shopAccesses,
       });
 
-      setFormData({ ...formData, password: '' });
-      fetchUser();
-      alert('User saved successfully');
+      window.location.href = '/admin/users';
     } catch (err: any) {
       console.error('Failed to save user:', err);
       alert(err?.error || 'Failed to save user');
