@@ -61,6 +61,7 @@ class ShopifyOrderService
                     createdAt
                     email
                     displayFinancialStatus
+                    displayFulfillmentStatus
                     totalPriceSet {
                         shopMoney {
                             amount
@@ -114,6 +115,13 @@ class ShopifyOrderService
                         id
                         status
                         kind
+                    }
+                    fulfillments(first: 5) {
+                        status
+                        trackingInfo {
+                            number
+                            url
+                        }
                     }
                 }
             }
@@ -227,18 +235,35 @@ class ShopifyOrderService
                 ];
             }
 
+            $fulfillments = [];
+            foreach ($node['fulfillments'] ?? [] as $f) {
+                $tracking = [];
+                foreach ($f['trackingInfo'] ?? [] as $ti) {
+                    $tracking[] = [
+                        'number' => $ti['number'],
+                        'url' => $ti['url'],
+                    ];
+                }
+                $fulfillments[] = [
+                    'status' => $f['status'],
+                    'trackingInfo' => $tracking,
+                ];
+            }
+
             $orders[] = [
                 'id' => $node['id'],
                 'cancelledAt' => $node['cancelledAt'],
                 'createdAt' => $node['createdAt'],
                 'email' => $node['email'],
                 'displayFinancialStatus' => $node['displayFinancialStatus'],
+                'displayFulfillmentStatus' => $node['displayFulfillmentStatus'],
                 'totalPriceSet_shopMoney_amount' => (float)($node['totalPriceSet']['shopMoney']['amount'] ?? 0),
                 'totalShippingPriceSet_shopMoney_amount' => (float)($node['totalShippingPriceSet']['shopMoney']['amount'] ?? 0),
                 'totalShippingPriceSet_shopMoney_currencyCode' => $node['totalShippingPriceSet']['shopMoney']['currencyCode'] ?? 'USD',
                 'shippingLine' => $node['shippingLine'],
                 'lineItems_nodes' => $lineItems,
                 'transactions_nodes' => $transactions,
+                'fulfillments_nodes' => $fulfillments,
             ];
         }
 

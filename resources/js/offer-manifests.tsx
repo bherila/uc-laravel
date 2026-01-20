@@ -12,6 +12,13 @@ import { fetchWrapper } from '@/fetchWrapper';
 import { formatCurrency } from '@/lib/currency';
 import { ExternalLink } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface LineItem {
   line_item_id: string;
@@ -27,6 +34,7 @@ interface Order {
   createdAt: string;
   email: string;
   displayFinancialStatus: string;
+  displayFulfillmentStatus: string;
   cancelledAt: string | null;
   totalPrice: number;
   purchasedItems: LineItem[];
@@ -37,6 +45,13 @@ interface Order {
   upgradeValue: number;
   upgradeCost: number;
   isQtyEqual: boolean;
+  fulfillments_nodes: {
+    status: string;
+    trackingInfo: {
+      number: string;
+      url: string | null;
+    }[];
+  }[];
 }
 
 interface OfferOrders {
@@ -194,22 +209,59 @@ function ShopifyManifestsPage() {
                     </TableCell>
                     <TableCell className="text-sm truncate max-w-[200px]">{order.email}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          order.cancelledAt
-                            ? 'destructive'
-                            : order.displayFinancialStatus === 'PAID'
-                              ? 'default'
-                              : 'secondary'
-                        }
-                        className={
-                          !order.cancelledAt && order.displayFinancialStatus === 'PAID'
-                            ? 'bg-green-600 hover:bg-green-700 text-white border-transparent'
-                            : ''
-                        }
-                      >
-                        {order.cancelledAt ? 'CANCELLED' : order.displayFinancialStatus}
-                      </Badge>
+                      {order.displayFulfillmentStatus === 'FULFILLED' ? (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Badge 
+                              className="bg-blue-600 hover:bg-blue-700 text-white border-transparent cursor-pointer"
+                            >
+                              SHIPPED
+                            </Badge>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Tracking Information</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              {order.fulfillments_nodes.map((f, i) => (
+                                <div key={i} className="border-b last:border-0 pb-2 last:pb-0">
+                                  <div className="text-sm font-medium mb-1">Fulfillment {i + 1} ({f.status})</div>
+                                  {f.trackingInfo.map((t, ti) => (
+                                    <div key={ti} className="flex items-center gap-2 text-sm">
+                                      <span>{t.number}</span>
+                                      {t.url && (
+                                        <a href={t.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+                                          View Tracking <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ))}
+                              {order.fulfillments_nodes.length === 0 && (
+                                <div className="text-sm text-muted-foreground text-center py-4">No tracking information available.</div>
+                              )}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      ) : (
+                        <Badge
+                          variant={
+                            order.cancelledAt
+                              ? 'destructive'
+                              : order.displayFinancialStatus === 'PAID'
+                                ? 'default'
+                                : 'secondary'
+                          }
+                          className={
+                            !order.cancelledAt && order.displayFinancialStatus === 'PAID'
+                              ? 'bg-green-600 hover:bg-green-700 text-white border-transparent'
+                              : ''
+                          }
+                        >
+                          {order.cancelledAt ? 'CANCELLED' : order.displayFinancialStatus}
+                        </Badge>
+                      )}
                       {!order.isQtyEqual && (
                         <Badge variant="outline" className="ml-2">
                           QTY MISMATCH
