@@ -32,7 +32,8 @@ class WebhookController extends Controller
 
     public function list(Request $request): JsonResponse
     {
-        $webhooks = Webhook::orderBy('id', 'desc')
+        $webhooks = Webhook::with(['shop'])
+            ->orderBy('id', 'desc')
             ->paginate(50); // Pagination is good for large lists
 
         return response()->json($webhooks);
@@ -40,7 +41,7 @@ class WebhookController extends Controller
 
     public function get(int $id): JsonResponse
     {
-        $webhook = Webhook::with(['subs', 'rerunOf'])
+        $webhook = Webhook::with(['subs', 'rerunOf', 'shop'])
             ->findOrFail($id);
 
         return response()->json($webhook);

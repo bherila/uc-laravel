@@ -18,6 +18,13 @@ interface Webhook {
   created_at: string;
   payload: string | null;
   headers: string | null;
+  shopify_topic: string | null;
+  shop_id: number | null;
+  shop: {
+      id: number;
+      name: string;
+      shop_domain: string;
+  } | null;
   valid_hmac: boolean | null;
   valid_shop_matched: boolean | null;
   error_ts: string | null;
@@ -112,6 +119,7 @@ function AdminWebhooksPage() {
             <TableRow>
               <TableHead>ID</TableHead>
               <TableHead>Received At</TableHead>
+              <TableHead>Topic</TableHead>
               <TableHead>Payload Size</TableHead>
               <TableHead>Headers Size</TableHead>
               <TableHead>HMAC</TableHead>
@@ -128,17 +136,25 @@ function AdminWebhooksPage() {
                 <TableCell className="text-sm">
                   {format(new Date(webhook.created_at), 'yyyy-MM-dd HH:mm:ss')}
                 </TableCell>
+                <TableCell className="text-sm">
+                  {webhook.shopify_topic || '-'}
+                </TableCell>
                 <TableCell>{getSizeInKB(webhook.payload)}</TableCell>
                 <TableCell>{getSizeInKB(webhook.headers)}</TableCell>
                 <TableCell>
-                  {webhook.valid_hmac === true && <span className="text-green-600">Valid</span>}
-                  {webhook.valid_hmac === false && <span className="text-red-600">Invalid</span>}
+                  {webhook.valid_hmac === true && <CheckCircle className="w-5 h-5 text-green-600" />}
+                  {webhook.valid_hmac === false && <XCircle className="w-5 h-5 text-red-600" />}
                   {webhook.valid_hmac === null && <span className="text-gray-400">-</span>}
                 </TableCell>
                 <TableCell>
-                  {webhook.valid_shop_matched === true && <span className="text-green-600">Yes</span>}
-                  {webhook.valid_shop_matched === false && <span className="text-red-600">No</span>}
-                  {webhook.valid_shop_matched === null && <span className="text-gray-400">-</span>}
+                  {webhook.shop ? (
+                      <div className="flex flex-col">
+                          <span className="font-medium">{webhook.shop.name}</span>
+                          <span className="text-xs text-gray-500">{webhook.shop.shop_domain}</span>
+                      </div>
+                  ) : (
+                      webhook.valid_shop_matched ? <span className="text-gray-500">Legacy Match</span> : <span className="text-red-400">-</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {getStatusBadge(webhook)}

@@ -24,6 +24,11 @@ class Webhook extends Model
         return $this->hasMany(WebhookSub::class);
     }
 
+    public function shop(): BelongsTo
+    {
+        return $this->belongsTo(ShopifyShop::class, 'shop_id');
+    }
+
     public function rerunOf(): BelongsTo
     {
         return $this->belongsTo(Webhook::class, 'rerun_of_id');

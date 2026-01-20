@@ -27,10 +27,12 @@ class ShopifyWebhookController extends Controller
         $payload = $request->getContent();
         $headers = json_encode($request->headers->all());
         $rerunOfId = $request->header('X-Rerun-Of-Id');
+        $topic = $request->header('X-Shopify-Topic');
         
         $webhook = Webhook::create([
             'payload' => $payload,
             'headers' => $headers,
+            'shopify_topic' => $topic,
             'rerun_of_id' => $rerunOfId ? (int)$rerunOfId : null,
         ]);
 
@@ -66,6 +68,8 @@ class ShopifyWebhookController extends Controller
             
             if ($shop) {
                 $validShopMatched = true;
+                $webhook->update(['shop_id' => $shop->id]);
+                
                 if ($shop->is_active) {
                      // Active
                 } else {
