@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Admin - Audit Log')
+
 @section('content')
 <div id="admin-audit-logs-root" 
      data-api-base="{{ url('/api') }}">

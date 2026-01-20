@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Admin - Users')
+
 @section('content')
 <div id="admin-users-root" data-api-base="{{ url('/api') }}"></div>
 @endsection

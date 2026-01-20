@@ -31,7 +31,11 @@ class AdminController extends Controller
      */
     public function userDetailPage(int $id)
     {
-        return view('admin.user-detail', ['userId' => $id]);
+        $user = User::findOrFail($id);
+        return view('admin.user-detail', [
+            'userId' => $id,
+            'userName' => $user->email,
+        ]);
     }
 
     /**
@@ -39,7 +43,11 @@ class AdminController extends Controller
      */
     public function storeDetailPage(int $id)
     {
-        return view('admin.store-detail', ['storeId' => $id]);
+        $shop = ShopifyShop::findOrFail($id);
+        return view('admin.store-detail', [
+            'storeId' => $id,
+            'storeName' => $shop->name,
+        ]);
     }
 
     //

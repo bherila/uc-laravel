@@ -21,7 +21,9 @@ class WebhookController extends Controller
 
     public function showPage(int $id)
     {
-        return view('admin.webhook-detail', ['webhookId' => $id]);
+        return view('admin.webhook-detail', [
+            'webhookId' => $id,
+        ]);
     }
 
     //

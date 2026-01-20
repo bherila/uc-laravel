@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', ($offerName ?? 'Offer') . ' - Profitability')
+
 @section('content')
 <div id="offer-profitability-root" 
      data-api-base="{{ url('/api') }}" 

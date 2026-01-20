@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Shops')
+
 @section('content')
 <div id="shops-root" 
      data-api-base="{{ url('/api') }}"

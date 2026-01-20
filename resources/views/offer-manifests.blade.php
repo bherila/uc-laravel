@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', ($offerName ?? 'Offer') . ' - Order Manifests')
+
 @section('content')
 <div id="offer-manifests-root" 
      data-api-base="{{ url('/api') }}" 

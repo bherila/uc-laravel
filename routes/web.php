@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
+use App\Models\Offer;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\AdminController;
@@ -35,40 +37,71 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [ShopController::class, 'show'])->name('shop.dashboard');
 
         // Offers
-        Route::get('/offers', function ($shop) {
+        Route::get('/offers', function (Request $request, $shop) {
             $user = auth()->user();
             $canWrite = $user->isAdmin() || $user->hasShopWriteAccess((int)$shop);
+            $shopObj = $request->attributes->get('shop');
             return view('offers', [
                 'shopId' => $shop,
+                'shopName' => $shopObj?->name,
                 'canWrite' => $canWrite
             ]);
         })->name('shop.offers');
 
-        Route::get('/offers/new', function ($shop) {
-            return view('offer-new', ['shopId' => $shop]);
+        Route::get('/offers/new', function (Request $request, $shop) {
+            $shopObj = $request->attributes->get('shop');
+            return view('offer-new', [
+                'shopId' => $shop,
+                'shopName' => $shopObj?->name,
+            ]);
         })->name('shop.offers.new');
 
-        Route::get('/offers/{offerId}', function ($shop, $offerId) {
-            return view('offer-detail', ['shopId' => $shop, 'offerId' => $offerId]);
+        Route::get('/offers/{offerId}', function (Request $request, $shop, $offerId) {
+            $offer = Offer::findOrFail($offerId);
+            return view('offer-detail', [
+                'shopId' => $shop,
+                'offerId' => $offerId,
+                'offerName' => $offer->offer_name,
+            ]);
         })->name('shop.offers.show');
 
-        Route::get('/offers/{offerId}/add-manifest', function ($shop, $offerId) {
-            return view('offer-add-manifest', ['shopId' => $shop, 'offerId' => $offerId]);
+        Route::get('/offers/{offerId}/add-manifest', function (Request $request, $shop, $offerId) {
+            $offer = Offer::findOrFail($offerId);
+            return view('offer-add-manifest', [
+                'shopId' => $shop, 
+                'offerId' => $offerId,
+                'offerName' => $offer->offer_name,
+            ]);
         })->name('shop.offers.add-manifest');
 
         Route::put('/offers/{offer}/add-manifest', [OfferManifestController::class, 'update']);
         Route::put('/offers/{offer}/manifests', [OfferManifestController::class, 'update']);
 
-        Route::get('/offers/{offerId}/profitability', function ($shop, $offerId) {
-            return view('offer-profitability', ['shopId' => $shop, 'offerId' => $offerId]);
+        Route::get('/offers/{offerId}/profitability', function (Request $request, $shop, $offerId) {
+            $offer = Offer::findOrFail($offerId);
+            return view('offer-profitability', [
+                'shopId' => $shop, 
+                'offerId' => $offerId,
+                'offerName' => $offer->offer_name,
+            ]);
         })->name('shop.offers.profitability');
 
-        Route::get('/offers/{offerId}/metafields', function ($shop, $offerId) {
-            return view('offer-metafields', ['shopId' => $shop, 'offerId' => $offerId]);
+        Route::get('/offers/{offerId}/metafields', function (Request $request, $shop, $offerId) {
+            $offer = Offer::findOrFail($offerId);
+            return view('offer-metafields', [
+                'shopId' => $shop, 
+                'offerId' => $offerId,
+                'offerName' => $offer->offer_name,
+            ]);
         })->name('shop.offers.metafields');
 
-        Route::get('/offers/{offerId}/shopify_manifests', function ($shop, $offerId) {
-            return view('offer-manifests', ['shopId' => $shop, 'offerId' => $offerId]);
+        Route::get('/offers/{offerId}/shopify_manifests', function (Request $request, $shop, $offerId) {
+            $offer = Offer::findOrFail($offerId);
+            return view('offer-manifests', [
+                'shopId' => $shop, 
+                'offerId' => $offerId,
+                'offerName' => $offer->offer_name,
+            ]);
         })->name('shop.offers.manifests');
     });
 

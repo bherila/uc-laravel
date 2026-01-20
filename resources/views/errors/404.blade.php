@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Page Not Found')
+
 @section('content')
 <div class="flex items-center justify-center min-h-[70vh]">
     <div class="text-center">

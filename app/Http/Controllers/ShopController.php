@@ -19,9 +19,13 @@ class ShopController extends Controller
     /**
      * Show the shop dashboard page.
      */
-    public function show(int $shop)
+    public function show(Request $request, int $shop)
     {
-        return view('shop.dashboard', ['shopId' => $shop]);
+        $shopObj = $request->attributes->get('shop');
+        return view('shop.dashboard', [
+            'shopId' => $shop,
+            'shopName' => $shopObj?->name,
+        ]);
     }
 
     /**

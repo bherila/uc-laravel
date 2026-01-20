@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Admin - Webhook #' . $webhookId)
+
 @section('content')
 <div id="admin-webhook-detail-root" 
      data-api-base="{{ url('/api') }}"

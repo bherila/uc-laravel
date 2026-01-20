@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Admin - Shop: ' . ($storeName ?? $storeId))
+
 @section('content')
 <div class="p-8">
      <h1 class="text-xl font-semibold">Store editing moved</h1>
