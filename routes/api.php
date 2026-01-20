@@ -8,6 +8,7 @@ use App\Http\Controllers\ShopController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\ShopifyWebhookController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\PasswordResetController;
 
 /*
@@ -64,6 +65,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('webhooks', [WebhookController::class, 'list']);
     Route::get('webhooks/{id}', [WebhookController::class, 'get']);
     Route::post('webhooks/{id}/rerun', [WebhookController::class, 'rerun']);
+
+    // Audit Logs
+    Route::get('audit-logs', [AuditLogController::class, 'list']);
 });
 
 // Shopify Webhook (no auth - uses HMAC verification and shop domain lookup)

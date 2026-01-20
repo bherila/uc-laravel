@@ -26,6 +26,7 @@ export default defineConfig({
                 'resources/js/admin-user-detail.tsx',
                 'resources/js/admin-webhooks.tsx',
                 'resources/js/admin-webhook-detail.tsx',
+                'resources/js/admin-audit-logs.tsx',
                 'resources/js/reset-password.tsx',
             ],
       refresh: true,

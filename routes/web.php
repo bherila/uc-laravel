@@ -7,6 +7,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\OfferManifestController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\AuditLogController;
 
 // Home page
 Route::get('/', function () {
@@ -73,6 +74,8 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/webhooks', [WebhookController::class, 'indexPage'])->name('admin.webhooks');
         Route::get('/webhooks/{id}', [WebhookController::class, 'showPage'])->name('admin.webhooks.detail');
+
+        Route::get('/audit-logs', [AuditLogController::class, 'indexPage'])->name('admin.audit-logs');
     });
 
     // Legacy offer routes (redirect to shops)

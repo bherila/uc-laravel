@@ -48,6 +48,7 @@ export default function Navbar({ authenticated, isAdmin }: NavbarProps) {
               <>
                 <li><a className='hover:underline underline-offset-4' href='/admin/users'>Users</a></li>
                 <li><a className='hover:underline underline-offset-4' href='/admin/webhooks'>Webhooks</a></li>
+                <li><a className='hover:underline underline-offset-4' href='/admin/audit-logs'>Audit Log</a></li>
               </>
             )}
           </ul>
