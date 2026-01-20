@@ -146,7 +146,7 @@ function Login() {
 
       {/* Password Reset Dialog */}
       <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
-        <DialogContent>
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Forgot Password</DialogTitle>
           </DialogHeader>

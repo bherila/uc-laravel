@@ -120,7 +120,7 @@ function AdminUsersPage() {
               Add User
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>
               <DialogDescription>Add a new user to the system.</DialogDescription>

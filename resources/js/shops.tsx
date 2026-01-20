@@ -184,7 +184,7 @@ function ShopsPage() {
                 Add Store
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
               <DialogHeader>
                 <DialogTitle>Create New Store</DialogTitle>
                 <DialogDescription>Add a new Shopify store to the system.</DialogDescription>
@@ -262,7 +262,7 @@ function ShopsPage() {
           </Dialog>
 
           <Dialog open={editingDialogOpen} onOpenChange={setEditingDialogOpen}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
               <DialogHeader>
                 <DialogTitle>Edit Store</DialogTitle>
                 <DialogDescription>Update store settings and API credentials.</DialogDescription>
