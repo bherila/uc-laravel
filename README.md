@@ -156,6 +156,8 @@ resources/js/
 - `POST /api/shops/{shop}/offers/{id}/unarchive` - Unarchive an offer
 - `GET /api/shops/{shop}/offers/{id}/metafields` - Update and get Shopify metafields
 - `GET /api/shops/{shop}/offers/{id}/orders` - Get orders for an offer
+- `GET /api/shops/{shop}/offers/cleanup-count` - Count offers ended >30d ago
+- `POST /api/shops/{shop}/offers/cleanup` - Bulk archive offers ended >30d ago
 
 ### Manifests (shop-scoped)
 - `GET /api/shops/{shop}/offers/{id}/manifests` - Get manifest summary

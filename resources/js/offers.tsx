@@ -26,6 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CleanupOffersButton } from '@/components/CleanupOffersButton';
 
 interface OfferProductData {
   variantId: string;
@@ -219,13 +220,21 @@ function OfferListPage() {
         />
 
       <div className="mb-4 flex justify-between items-center">
-        {canWrite ? (
-          <Button asChild>
-            <a href={`/shop/${shopId}/offers/new`}>Create New Offer</a>
-          </Button>
-        ) : (
-          <div />
-        )}
+        <div className="flex items-center">
+          {canWrite && (
+            <Button asChild>
+              <a href={`/shop/${shopId}/offers/new`}>Create New Offer</a>
+            </Button>
+          )}
+          
+          {canWrite && status === 'active' && (
+            <CleanupOffersButton 
+              shopId={shopId!} 
+              apiBase={apiBase} 
+              onCleanupSuccess={() => fetchOffers(page, status)} 
+            />
+          )}
+        </div>
 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">

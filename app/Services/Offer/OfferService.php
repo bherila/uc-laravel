@@ -92,6 +92,57 @@ class OfferService
     }
 
     /**
+     * Get offers that have ended more than 30 days ago and are not archived.
+     * 
+     * @param int $shopId
+     * @return \Illuminate\Support\Collection
+     */
+    public function getCleanupOffers(int $shopId)
+    {
+        $offers = Offer::where('shop_id', $shopId)
+            ->where('is_archived', false)
+            ->get(['offer_id', 'offer_variant_id']);
+
+        if ($offers->isEmpty()) {
+            return collect();
+        }
+
+        $variantIds = $offers->pluck('offer_variant_id')->toArray();
+        $offerProductData = $this->shopifyProductService->getProductDataByVariantIds($variantIds);
+
+        $thirtyDaysAgo = now()->subDays(30);
+
+        return $offers->filter(function ($offer) use ($offerProductData, $thirtyDaysAgo) {
+            $productData = $offerProductData[$offer->offer_variant_id] ?? null;
+            $endDate = $productData['endDate'] ?? null;
+            if (!$endDate) return false;
+            
+            try {
+                return new \DateTime($endDate) < $thirtyDaysAgo;
+            } catch (\Exception $e) {
+                return false;
+            }
+        });
+    }
+
+    /**
+     * Bulk archive offers that ended >30 days ago.
+     * 
+     * @param int $shopId
+     * @return int Number of offers archived
+     */
+    public function cleanupOffers(int $shopId): int
+    {
+        $toArchive = $this->getCleanupOffers($shopId);
+        if ($toArchive->isEmpty()) {
+            return 0;
+        }
+
+        $ids = $toArchive->pluck('offer_id')->toArray();
+        return Offer::whereIn('offer_id', $ids)->update(['is_archived' => true]);
+    }
+
+    /**
      * Create a new offer
      *
      * @param string $offerName

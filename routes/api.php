@@ -28,6 +28,8 @@ Route::middleware('auth')->get('shops', [ShopController::class, 'listAccessible'
 Route::middleware(['auth', 'shop.access'])->prefix('shops/{shop}')->group(function () {
     // Offers
     Route::get('offers', [OfferController::class, 'index']);
+    Route::get('offers/cleanup-count', [OfferController::class, 'cleanupCount']);
+    Route::post('offers/cleanup', [OfferController::class, 'cleanup'])->middleware('shop.access:write');
     Route::post('offers', [OfferController::class, 'store'])->middleware('shop.access:write');
     Route::get('offers/{offer}', [OfferController::class, 'show']);
     Route::delete('offers/{offer}', [OfferController::class, 'destroy'])->middleware('shop.access:write');

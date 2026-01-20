@@ -118,6 +118,8 @@ Defined in [routes/api.php](routes/api.php):
 - `POST /api/shops/{shop}/offers/{id}/unarchive` - Unarchive an offer
 - `GET /api/shops/{shop}/offers/{id}/metafields` - Update and return Shopify metafields
 - `GET /api/shops/{shop}/offers/{id}/orders` - Get orders with manifest allocations
+- `GET /api/shops/{shop}/offers/cleanup-count` - Get count of offers that can be archived (ended >30d)
+- `POST /api/shops/{shop}/offers/cleanup` - Bulk archive offers that ended >30d ago
 
 ### Manifests (shop-scoped)
 - `GET/PUT /api/shops/{shop}/offers/{id}/manifests` - Get summary / update quantities

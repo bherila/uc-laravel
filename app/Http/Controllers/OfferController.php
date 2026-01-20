@@ -46,6 +46,29 @@ class OfferController extends Controller
     }
 
     /**
+     * Get count of offers that can be archived (ended > 30d ago)
+     */
+    public function cleanupCount(Request $request, int $shop): JsonResponse
+    {
+        $offerService = $this->makeOfferService($request);
+        $count = $offerService->getCleanupOffers($shop)->count();
+        return response()->json(['count' => $count]);
+    }
+
+    /**
+     * Bulk archive offers that ended > 30d ago
+     */
+    public function cleanup(Request $request, int $shop): JsonResponse
+    {
+        $offerService = $this->makeOfferService($request);
+        $count = $offerService->cleanupOffers($shop);
+        return response()->json([
+            'message' => "Successfully archived {$count} offers",
+            'count' => $count
+        ]);
+    }
+
+    /**
      * Archive an offer
      */
     public function archive(Request $request, int $shop, int $offer): JsonResponse
