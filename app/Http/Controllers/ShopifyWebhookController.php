@@ -66,6 +66,8 @@ class ShopifyWebhookController extends Controller
                 ->orWhere('shop_domain', $shopHandle . '.myshopify.com')
                 ->first();
             
+            $isInternalRerun = $request->attributes->get('is_internal_rerun') === true;
+            
             if ($shop) {
                 $validShopMatched = true;
                 $webhook->update(['shop_id' => $shop->id]);
@@ -80,7 +82,9 @@ class ShopifyWebhookController extends Controller
             }
 
             // Verify HMAC with shop-specific secret
-            if ($shop && $this->verifyHmac($request, $shop)) {
+            if ($isInternalRerun) {
+                $validHmac = true;
+            } elseif ($shop && $this->verifyHmac($request, $shop)) {
                 $validHmac = true;
             } elseif ($shop) {
                  $errorMessage = 'HMAC verification failed';

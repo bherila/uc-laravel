@@ -114,6 +114,9 @@ class WebhookController extends Controller
         
         $newRequest->headers->set('X-Rerun-Of-Id', $originalWebhook->id);
         
+        // Mark as internal rerun to skip HMAC
+        $newRequest->attributes->set('is_internal_rerun', true);
+        
         // Call the controller
         $controller = app(ShopifyWebhookController::class);
         $response = $controller->handle($newRequest);
