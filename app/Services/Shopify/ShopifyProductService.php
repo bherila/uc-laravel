@@ -226,7 +226,8 @@ class ShopifyProductService
 
     public function __construct(
         private ShopifyClient $client
-    ) {}
+    ) {
+    }
 
     /**
      * Get product data by variant IDs
@@ -268,9 +269,9 @@ class ShopifyProductService
                     $startDate = null;
                     $endDate = null;
                     foreach ($product['metafields']['nodes'] ?? [] as $metafield) {
-                        if ($metafield['key'] === 'start_date') {
+                        if (str_contains($metafield['key'] ?? '', 'start_date')) {
                             $startDate = $metafield['jsonValue'];
-                        } elseif ($metafield['key'] === 'end_date') {
+                        } elseif (str_contains($metafield['key'] ?? '', 'end_date')) {
                             $endDate = $metafield['jsonValue'];
                         }
                     }
@@ -323,7 +324,7 @@ class ShopifyProductService
     public function getVariantDetail(int $offerId, string $offerVariantId): array
     {
         $cacheKey = 'shopify_variant_detail_' . md5($offerVariantId);
-        
+
         return Cache::remember($cacheKey, 120, function () use ($offerId, $offerVariantId) {
             try {
                 $response = $this->client->graphql(self::GQL_GET_VARIANT_DETAIL, ['id' => $offerVariantId]);
@@ -360,10 +361,10 @@ class ShopifyProductService
             $result['vars'] = compact('productId', 'key', 'value');
             $response = $this->client->graphql(self::GQL_WRITE_PRODUCT_METAFIELD, $result['vars']);
             $result['edges'] = $response['productUpdate']['product']['metafields']['edges'] ?? [];
-            
+
             // Clear caches
             $this->clearProductCaches($productId);
-            
+
             return $result['edges'];
         } catch (\Exception $e) {
             $result['error'] = $e->getMessage();
@@ -389,10 +390,10 @@ class ShopifyProductService
             $response = $this->client->graphql(self::GQL_WRITE_VARIANT_METAFIELD, $vars);
             $edges = $response['productVariantUpdate']['productVariant']['metafields']['edges'] ?? [];
             $this->log($edges, 'metaField');
-            
+
             // Clear caches
             $this->clearVariantCaches($variantId);
-            
+
             return $edges;
         } catch (\Exception $e) {
             $this->logError($e, 'metaField');

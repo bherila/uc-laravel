@@ -7,9 +7,11 @@ import ShopOfferBreadcrumb from '@/components/ShopOfferBreadcrumb';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { formatCurrency } from '@/lib/currency';
 import { ExternalLink } from 'lucide-react';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 
 interface LineItem {
   line_item_id: string;
@@ -116,9 +118,9 @@ function ShopifyManifestsPage() {
 
   return (
     <Container>
-      <ShopOfferBreadcrumb 
-        shopId={shopId!} 
-        shopName={data.shop?.name} 
+      <ShopOfferBreadcrumb
+        shopId={shopId!}
+        shopName={data.shop?.name}
         offer={{ id: data.offer_id, name: data.offer_name }}
         action="Order Manifests"
       />
@@ -190,105 +192,8 @@ function ShopifyManifestsPage() {
                         order.cancelledAt
                           ? 'destructive'
                           : order.displayFinancialStatus === 'PAID'
-                          ? 'default'
-                          : 'secondary'
-                      }
-                    >
-                      {order.cancelledAt ? 'CANCELLED' : order.displayFinancialStatus}
-                    </Badge>
-                    {!order.isQtyEqual && (
-                      <Badge variant="outline" className="ml-2">
-                        QTY MISMATCH
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="font-medium">{order.purchasedQty} btl</div>
-                    <div className="text-xs text-muted-foreground">{formatCurrency(order.purchasedValue)}</div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="font-medium">{order.upgradeQty} btl</div>
-                    <div className="text-xs text-muted-foreground">{formatCurrency(order.upgradeValue)}</div>
-                  </TableCell>
-                  <TableCell className="text-xs max-w-[300px]">
-                    {order.upgradeItems.map((item, i) => (
-                      <div key={item.line_item_id} className="truncate">
-                        {item.title} x{item.currentQuantity}
-                      </div>
-                    ))}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </Container>
-  );
-}
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="border rounded-md p-4">
-          <div className="text-sm text-muted-foreground">Order Count</div>
-          <div className="text-2xl font-semibold">{data.totals.orderCount}</div>
-        </div>
-        <div className="border rounded-md p-4">
-          <div className="text-sm text-muted-foreground">Total Bottles Sold</div>
-          <div className="text-2xl font-semibold">{data.totals.purchasedQty}</div>
-        </div>
-        <div className="border rounded-md p-4">
-          <div className="text-sm text-muted-foreground">Total Revenue</div>
-          <div className="text-2xl font-semibold">{formatCurrency(data.totals.purchasedValue)}</div>
-        </div>
-        <div className="border rounded-md p-4">
-          <div className="text-sm text-muted-foreground">Total Upgrade Value</div>
-          <div className="text-2xl font-semibold">{formatCurrency(data.totals.upgradeValue)}</div>
-        </div>
-      </div>
-
-      {data.orders.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground border rounded-md">
-          No orders found for this offer.
-        </div>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-center">Purchased</TableHead>
-                <TableHead className="text-center">Upgrades</TableHead>
-                <TableHead>Upgrade Items</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.orders.map((order) => (
-                <TableRow key={order.id} className={!order.isQtyEqual ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}>
-                  <TableCell>
-                    <a
-                      href={getShopifyOrderUrl(order.id)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-sm hover:underline"
-                    >
-                      {order.id.replace('gid://shopify/Order/', '#')}
-                    </a>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {formatDistanceToNow(parseISO(order.createdAt), { addSuffix: true })}
-                  </TableCell>
-                  <TableCell className="text-sm truncate max-w-[200px]">{order.email}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        order.cancelledAt
-                          ? 'destructive'
-                          : order.displayFinancialStatus === 'PAID'
-                          ? 'default'
-                          : 'secondary'
+                            ? 'default'
+                            : 'secondary'
                       }
                     >
                       {order.cancelledAt ? 'CANCELLED' : order.displayFinancialStatus}

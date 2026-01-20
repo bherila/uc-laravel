@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { Store, ArrowRight, ExternalLink } from 'lucide-react';
+import RenderRelativeTimeInterval from '@/components/RenderRelativeTimeInterval';
 
 interface OfferProductData {
   variantId: string;
@@ -43,32 +44,7 @@ interface ShopifyProduct {
   tags: string[];
 }
 
-function formatDateRange(startDate?: string, endDate?: string): string {
-  if (!startDate && !endDate) return '-';
-  
-  const now = new Date();
-  const parts: string[] = [];
-  
-  if (startDate) {
-    const start = parseISO(startDate);
-    if (isAfter(start, now)) {
-      parts.push(`Starts ${formatDistanceToNow(start, { addSuffix: true })}`);
-    } else {
-      parts.push(`Started ${formatDistanceToNow(start, { addSuffix: true })}`);
-    }
-  }
-  
-  if (endDate) {
-    const end = parseISO(endDate);
-    if (isAfter(end, now)) {
-      parts.push(`Ends ${formatDistanceToNow(end, { addSuffix: true })}`);
-    } else {
-      parts.push(`Ended ${formatDistanceToNow(end, { addSuffix: true })}`);
-    }
-  }
-  
-  return parts.join(' • ');
-}
+// RenderRelativeTimeInterval component handles date formatting and live updates
 
 function OfferListPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -230,7 +206,10 @@ function OfferListPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">
-                    {formatDateRange(offer.offerProductData?.startDate, offer.offerProductData?.endDate)}
+                    <RenderRelativeTimeInterval
+                      startDate={offer.offerProductData?.startDate}
+                      endDate={offer.offerProductData?.endDate}
+                    />
                   </TableCell>
                   <TableCell>
                     {offer.offerProductData?.status && (
