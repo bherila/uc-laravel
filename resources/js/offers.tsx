@@ -99,6 +99,11 @@ function OfferListPage() {
 
       const result = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers?status=${currentStatus}&page=${pageNum}`);
       setData(result);
+
+      // If this page is empty and we're not on page 1, go back a page
+      if (result.data.length === 0 && pageNum > 1) {
+        setPage(pageNum - 1);
+      }
     } catch (err) {
       setError('Failed to load offers');
       console.error(err);
