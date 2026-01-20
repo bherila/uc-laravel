@@ -104,15 +104,19 @@ class ShopifyClient
             }
         }
 
+        $startTime = (int)(microtime(true) * 1000);
         $response = $this->client()->post('/graphql.json', [
             'query' => $query,
             'variables' => $variables,
         ]);
+        $elapsed = (int)(microtime(true) * 1000) - $startTime;
 
         if ($this->webhookId) {
             try {
                 WebhookSub::create([
                     'webhook_id' => $this->webhookId,
+                    'event' => 'Shopify GraphQL',
+                    'time_taken_ms' => $elapsed,
                     'shopify_request' => json_encode(['query' => $query, 'variables' => $variables]),
                     'shopify_response' => $response->body(),
                     'shopify_response_code' => $response->status(),
