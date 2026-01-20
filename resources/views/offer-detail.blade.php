@@ -6,7 +6,8 @@
 <div id="offer-detail-root" 
      data-api-base="{{ url('/api') }}" 
      data-shop-id="{{ $shopId }}"
-     data-offer-id="{{ $offerId }}">
+     data-offer-id="{{ $offerId }}"
+     data-can-write-shop="{{ $canWrite ? 'true' : 'false' }}">
 </div>
 @endsection
 

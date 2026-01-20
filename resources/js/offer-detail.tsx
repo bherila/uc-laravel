@@ -84,6 +84,7 @@ function OfferDetailPage() {
   const offerId = root?.dataset.offerId;
   const shopId = root?.dataset.shopId;
   const apiBase = root?.dataset.apiBase || '/api';
+  const canWrite = root?.dataset.canWriteShop === 'true';
 
   const fetchOffer = useCallback(async () => {
     if (!offerId) return;
@@ -214,9 +215,11 @@ function OfferDetailPage() {
       </p>
 
       <div className="flex flex-wrap gap-2 mb-6">
-        <Button asChild>
-          <a href={`/shop/${shopId}/offers/${offerId}/add-manifest`}>Add Bottles to Offer</a>
-        </Button>
+        {canWrite && (
+          <Button asChild>
+            <a href={`/shop/${shopId}/offers/${offerId}/add-manifest`}>Add Bottles to Offer</a>
+          </Button>
+        )}
         <Button
           variant="secondary"
           asChild
@@ -301,13 +304,13 @@ function OfferDetailPage() {
               {offer.hasOrders && <TableHead># Remaining</TableHead>}
               <TableHead>% Chance</TableHead>
               <TableHead>Shopify Inventory</TableHead>
-              <TableHead>Action</TableHead>
+              {canWrite && <TableHead>Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {Object.keys(offer.manifestGroups).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={offer.hasOrders ? 7 : 7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={offer.hasOrders ? (canWrite ? 8 : 7) : (canWrite ? 6 : 5)} className="text-center py-8 text-muted-foreground">
                   No products added yet. Add bottles to get started.
                 </TableCell>
               </TableRow>
@@ -344,14 +347,16 @@ function OfferDetailPage() {
                     {offer.hasOrders && <TableCell>{group.total - group.allocated}</TableCell>}
                     <TableCell>{percentChance.toFixed(2)}%</TableCell>
                     <TableCell>{shopifyProduct?.variantInventoryQuantity ?? '-'}</TableCell>
-                    <TableCell>
-                      <OfferItemRemoval
-                        variantId={variantId}
-                        allocatedCount={group.allocated}
-                        isDeleting={deleting === variantId}
-                        onDelete={deleteManifest}
-                      />
-                    </TableCell>
+                    {canWrite && (
+                      <TableCell>
+                        <OfferItemRemoval
+                          variantId={variantId}
+                          allocatedCount={group.allocated}
+                          isDeleting={deleting === variantId}
+                          onDelete={deleteManifest}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })

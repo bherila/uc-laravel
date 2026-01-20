@@ -57,20 +57,26 @@ Route::middleware('auth')->group(function () {
         })->name('shop.offers.new');
 
         Route::get('/offers/{offerId}', function (Request $request, $shop, $offerId) {
+            $user = auth()->user();
+            $canWrite = $user->isAdmin() || $user->hasShopWriteAccess((int)$shop);
             $offer = Offer::findOrFail($offerId);
             return view('offer-detail', [
                 'shopId' => $shop,
                 'offerId' => $offerId,
                 'offerName' => $offer->offer_name,
+                'canWrite' => $canWrite
             ]);
         })->name('shop.offers.show');
 
         Route::get('/offers/{offerId}/add-manifest', function (Request $request, $shop, $offerId) {
+            $user = auth()->user();
+            $canWrite = $user->isAdmin() || $user->hasShopWriteAccess((int)$shop);
             $offer = Offer::findOrFail($offerId);
             return view('offer-add-manifest', [
                 'shopId' => $shop, 
                 'offerId' => $offerId,
                 'offerName' => $offer->offer_name,
+                'canWrite' => $canWrite
             ]);
         })->name('shop.offers.add-manifest');
 

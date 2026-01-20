@@ -94,6 +94,13 @@ function AddManifestPage() {
   const offerId = root?.dataset.offerId;
   const shopId = root?.dataset.shopId;
   const apiBase = root?.dataset.apiBase || '/api';
+  const canWrite = root?.dataset.canWriteShop === 'true';
+
+  useEffect(() => {
+    if (!loading && !canWrite) {
+      window.location.href = `/shop/${shopId}/offers/${offerId}`;
+    }
+  }, [canWrite, loading, shopId, offerId]);
 
   useEffect(() => {
     const loadData = async () => {
