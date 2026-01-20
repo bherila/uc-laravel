@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import React, { useState, useEffect, useCallback } from 'react';
 import Container from '@/components/container';
 import MainTitle from '@/components/MainTitle';
+import ShopOfferBreadcrumb from '@/components/ShopOfferBreadcrumb';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { formatCurrency } from '@/lib/currency';
+
+import { ArrowLeft, Save, Plus, Trash2, ExternalLink } from 'lucide-react';
 
 interface ManifestGroup {
   total: number;
@@ -50,9 +53,15 @@ interface OfferDetail {
   offer_name: string;
   offer_variant_id: string;
   offer_product_name: string;
+  shop_id: number;
+  shop?: {
+    id: number;
+    name: string;
+    shop_domain: string;
+  };
   offerProductData: ProductData | null;
   manifestGroups: Record<string, ManifestGroup>;
-  manifestProductData: Record<string, ProductData>;
+  manifestProductData: Record<string, ManifestGroup>;
   hasOrders: boolean;
   orderCount: number;
   unassignedCount: number;
@@ -60,16 +69,18 @@ interface OfferDetail {
   deficit: number;
 }
 
-function VariantLink({ variantId, type }: { variantId: string; type: 'deal' | 'manifest-item' }) {
+function VariantLink({ variantId, shopDomain }: { variantId: string; shopDomain?: string }) {
   const numericId = variantId.replace('gid://shopify/ProductVariant/', '');
+  const shopSlug = shopDomain?.replace('.myshopify.com', '') || 'underground-cellar';
   return (
     <a
-      href={`https://admin.shopify.com/store/underground-cellar/products/variants/${numericId}`}
+      href={`https://admin.shopify.com/store/${shopSlug}/products/variants/${numericId}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-xs text-muted-foreground hover:underline font-mono"
+      className="text-xs text-muted-foreground hover:underline font-mono inline-flex items-center gap-1"
     >
       {numericId}
+      <ExternalLink className="w-3 h-3" />
     </a>
   );
 }
@@ -182,12 +193,14 @@ function OfferDetailPage() {
 
   return (
     <Container>
-      <MainTitle>
-        [{offer.offer_id}] {offer.offer_name}
-      </MainTitle>
+      <ShopOfferBreadcrumb 
+        shopId={shopId!} 
+        shopName={offer.shop?.name} 
+        offer={{ id: offer.offer_id, name: offer.offer_name }}
+      />
 
       <p className="mb-4 text-sm text-muted-foreground">
-        Shopify product: <VariantLink variantId={offer.offer_variant_id} type="deal" />{' '}
+        Shopify product: <VariantLink variantId={offer.offer_variant_id} shopDomain={offer.shop?.shop_domain} />{' '}
         ({offer.offerProductData?.title}), {offer.inventoryQty} inventory
         {weight !== 2 && weight !== 0 && (
           <Badge variant="destructive" className="ml-2">
@@ -295,7 +308,7 @@ function OfferDetailPage() {
                     <TableCell>
                       <div className="space-y-1">
                         <div className="font-medium">{product?.title ?? '??'}</div>
-                        <VariantLink variantId={variantId} type="manifest-item" />
+                        <VariantLink variantId={variantId} shopDomain={offer.shop?.shop_domain} />
                         {weight > 1 && (
                           <Badge variant="destructive" className="ml-2">
                             Weight should be zero

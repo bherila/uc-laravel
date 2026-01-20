@@ -3,12 +3,13 @@ import { createRoot } from 'react-dom/client';
 import React, { useState, useEffect, useCallback } from 'react';
 import Container from '@/components/container';
 import MainTitle from '@/components/MainTitle';
+import ShopOfferBreadcrumb from '@/components/ShopOfferBreadcrumb';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
-import { formatDistanceToNow, parseISO, isAfter, isBefore } from 'date-fns';
+import { Store, ArrowRight, ExternalLink } from 'lucide-react';
 
 interface OfferProductData {
   variantId: string;
@@ -24,6 +25,12 @@ interface OfferProductData {
 interface Offer {
   offer_id: number;
   offer_name: string;
+  shop_id: number;
+  shop?: {
+    id: number;
+    name: string;
+    shop_domain: string;
+  };
   offerProductData?: OfferProductData;
 }
 
@@ -114,10 +121,15 @@ function OfferListPage() {
     return shopifyProduct?.productName || offer.offerProductData?.title || '-';
   };
 
-  const getVariantLink = (variantId: string): string => {
+  const getVariantLink = (offer: Offer): string => {
+    const variantId = offer.offerProductData?.variantId;
+    if (!variantId) return '#';
     const numericId = variantId.replace('gid://shopify/ProductVariant/', '');
-    return `https://admin.shopify.com/store/underground-cellar/products/variants/${numericId}`;
+    const shopSlug = offer.shop?.shop_domain?.replace('.myshopify.com', '') || 'underground-cellar';
+    return `https://admin.shopify.com/store/${shopSlug}/products/variants/${numericId}`;
   };
+
+  const shopName = offers[0]?.shop?.name || 'Loading...';
 
   if (loading) {
     return (
@@ -153,7 +165,11 @@ function OfferListPage() {
 
   return (
     <Container>
-      <MainTitle>Offers</MainTitle>
+      <ShopOfferBreadcrumb 
+        shopId={shopId!} 
+        shopName={shopName} 
+      />
+
       <div className="mb-4">
         <Button asChild>
           <a href={`/shop/${shopId}/offers/new`}>Create New Offer</a>
@@ -195,12 +211,13 @@ function OfferListPage() {
                       <span className="text-sm">{getProductName(offer)}</span>
                       {offer.offerProductData?.variantId && (
                         <a 
-                          href={getVariantLink(offer.offerProductData.variantId)}
+                          href={getVariantLink(offer)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-muted-foreground hover:underline font-mono"
+                          className="text-xs text-muted-foreground hover:underline font-mono flex items-center gap-1"
                         >
                           {offer.offerProductData.variantId.replace('gid://shopify/ProductVariant/', '')}
+                          <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
                       <div className="flex flex-wrap gap-1">

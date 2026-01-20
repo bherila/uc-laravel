@@ -3,7 +3,9 @@ import { createRoot } from 'react-dom/client';
 import React, { useState, useEffect } from 'react';
 import Container from '@/components/container';
 import MainTitle from '@/components/MainTitle';
+import ShopOfferBreadcrumb from '@/components/ShopOfferBreadcrumb';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { fetchWrapper } from '@/fetchWrapper';
@@ -17,7 +19,7 @@ function MetafieldsPage() {
   const [metafields, setMetafields] = useState<Metafields | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [offerName, setOfferName] = useState<string>('');
+  const [offer, setOffer] = useState<any>(null);
 
   const root = document.getElementById('offer-metafields-root');
   const offerId = root?.dataset.offerId;
@@ -32,7 +34,7 @@ function MetafieldsPage() {
           fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}`),
           fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}/metafields`),
         ]);
-        setOfferName(offerData.offer_name);
+        setOffer(offerData);
         setMetafields(metafieldsData);
       } catch (err: any) {
         console.error('Failed to load data:', err);
@@ -47,17 +49,19 @@ function MetafieldsPage() {
   if (loading) {
     return (
       <Container>
-        <MainTitle>Metafields</MainTitle>
-        <div className="text-center py-8 text-muted-foreground">Loading and updating metafields...</div>
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-2/3 mt-5 mb-3" />
+          <div className="text-center py-8 text-muted-foreground">Loading and updating metafields...</div>
+        </div>
       </Container>
     );
   }
 
-  if (error) {
+  if (error || !offer) {
     return (
       <Container>
         <MainTitle>Metafields</MainTitle>
-        <div className="text-center py-8 text-destructive">{error}</div>
+        <div className="text-center py-8 text-destructive">{error || 'Offer not found'}</div>
         <div className="mt-4">
           <Button variant="outline" asChild>
             <a href={`/shop/${shopId}/offers/${offerId}`}>← Back to Offer Details</a>
@@ -69,7 +73,12 @@ function MetafieldsPage() {
 
   return (
     <Container>
-      <MainTitle>Metafields for Offer [{offerId}] {offerName}</MainTitle>
+      <ShopOfferBreadcrumb 
+        shopId={shopId!} 
+        shopName={offer.shop?.name} 
+        offer={{ id: offer.offer_id, name: offer.offer_name }}
+        action="Metafields"
+      />
 
       <div className="mb-6">
         <Button variant="outline" asChild>

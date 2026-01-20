@@ -26,7 +26,7 @@ class OfferService
      */
     public function loadOfferList(?int $shopId = null): array
     {
-        $query = Offer::orderBy('offer_id', 'desc');
+        $query = Offer::with('shop:id,name,shop_domain')->orderBy('offer_id', 'desc');
         
         if ($shopId !== null) {
             $query->where('shop_id', $shopId);
@@ -44,6 +44,7 @@ class OfferService
                 'offer_id' => $offer->offer_id,
                 'offer_name' => $offer->offer_name,
                 'shop_id' => $offer->shop_id,
+                'shop' => $offer->shop,
                 'offerProductData' => $productData ? [
                     ...$productData,
                     'variantId' => $offer->offer_variant_id,
@@ -116,7 +117,7 @@ class OfferService
      */
     public function getOffer(int $offerId): ?array
     {
-        $offer = Offer::find($offerId);
+        $offer = Offer::with('shop:id,name,shop_domain')->find($offerId);
 
         if (!$offer) {
             return null;
@@ -129,6 +130,8 @@ class OfferService
             'offer_name' => $offer->offer_name,
             'offer_variant_id' => $offer->offer_variant_id,
             'offer_product_name' => $offer->offer_product_name,
+            'shop_id' => $offer->shop_id,
+            'shop' => $offer->shop,
             'offerProductData' => $productData,
         ];
     }
@@ -141,7 +144,7 @@ class OfferService
      */
     public function getOfferDetail(int $offerId): ?array
     {
-        $offer = Offer::find($offerId);
+        $offer = Offer::with('shop:id,name,shop_domain')->find($offerId);
 
         if (!$offer) {
             return null;
@@ -200,6 +203,8 @@ class OfferService
             'offer_name' => $offer->offer_name,
             'offer_variant_id' => $offer->offer_variant_id,
             'offer_product_name' => $offer->offer_product_name,
+            'shop_id' => $offer->shop_id,
+            'shop' => $offer->shop,
             'offerProductData' => $offerProductData ? [
                 ...$offerProductData,
                 'variantId' => $offer->offer_variant_id,
@@ -273,7 +278,7 @@ class OfferService
      */
     public function getOfferOrders(int $offerId): ?array
     {
-        $offer = Offer::find($offerId);
+        $offer = Offer::with('shop:id,name,shop_domain')->find($offerId);
 
         if (!$offer) {
             return null;
@@ -289,6 +294,8 @@ class OfferService
                 'offer_id' => $offerId,
                 'offer_name' => $offer->offer_name,
                 'variant_id' => $offer->offer_variant_id,
+                'shop_id' => $offer->shop_id,
+                'shop' => $offer->shop,
                 'orders' => [],
                 'totals' => [
                     'orderCount' => 0,
@@ -306,7 +313,6 @@ class OfferService
         // Get offer detail to get manifest product data
         $offerDetail = $this->getOfferDetail($offerId);
         $manifestProductData = $offerDetail['manifestProductData'] ?? [];
-        $offerSkuVariantId = $offerDetail['offerProductData']['variantId'] ?? null;
 
         // Get orders from Shopify
         $shopifyOrders = $this->shopifyOrderService->getOrdersWithLineItems($orderIds);
@@ -397,6 +403,8 @@ class OfferService
             'offer_id' => $offerId,
             'offer_name' => $offer->offer_name,
             'variant_id' => $offer->offer_variant_id,
+            'shop_id' => $offer->shop_id,
+            'shop' => $offer->shop,
             'orders' => $processedOrders,
             'totals' => $totals,
         ];

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import React, { useState, useEffect, useMemo } from 'react';
 import Container from '@/components/container';
 import MainTitle from '@/components/MainTitle';
+import ShopOfferBreadcrumb from '@/components/ShopOfferBreadcrumb';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -28,6 +29,12 @@ interface ManifestGroup {
 interface OfferDetail {
   offer_id: number;
   offer_name: string;
+  shop_id: number;
+  shop?: {
+    id: number;
+    name: string;
+    shop_domain: string;
+  };
   offerProductData: {
     priceRange?: {
       maxVariantPrice?: { amount: string };
@@ -192,7 +199,7 @@ function ProfitabilityPage() {
     return (
       <Container>
         <div className="space-y-6">
-          <Skeleton className="h-12 w-3/4 mt-5 mb-3" />
+          <Skeleton className="h-12 w-2/3 mt-5 mb-3" />
           <Skeleton className="h-9 w-48" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Skeleton className="h-32 w-full" />
@@ -223,7 +230,12 @@ function ProfitabilityPage() {
 
   return (
     <Container>
-      <MainTitle>Profitability for [{offer.offer_id}] {offer.offer_name}</MainTitle>
+      <ShopOfferBreadcrumb 
+        shopId={shopId!} 
+        shopName={offer.shop?.name} 
+        offer={{ id: offer.offer_id, name: offer.offer_name }}
+        action="Profitability"
+      />
 
       <div className="mb-6">
         <Button variant="outline" asChild>

@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client';
 import React, { useState, useEffect, useMemo } from 'react';
 import Container from '@/components/container';
 import MainTitle from '@/components/MainTitle';
+import ShopOfferBreadcrumb from '@/components/ShopOfferBreadcrumb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 
 interface ShopifyProduct {
@@ -83,7 +85,7 @@ function AddManifestPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [offerName, setOfferName] = useState<string>('');
+  const [offer, setOffer] = useState<any>(null);
 
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
   const [qty, setQty] = useState('1');
@@ -101,7 +103,7 @@ function AddManifestPage() {
           fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}`),
         ]);
         setProducts(productsData);
-        setOfferName(offerData.offer_name);
+        setOffer(offerData);
       } catch (err) {
         console.error('Failed to load data:', err);
         setError('Failed to load product data');
@@ -142,15 +144,31 @@ function AddManifestPage() {
   if (loading) {
     return (
       <Container>
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-2/3 mt-5 mb-3" />
+          <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        </div>
+      </Container>
+    );
+  }
+
+  if (error || !offer) {
+    return (
+      <Container>
         <MainTitle>Add Bottles to Offer</MainTitle>
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        <div className="text-center py-8 text-destructive">{error || 'Offer not found'}</div>
       </Container>
     );
   }
 
   return (
     <Container>
-      <MainTitle>Add Bottles to Offer [{offerId}] {offerName}</MainTitle>
+      <ShopOfferBreadcrumb 
+        shopId={shopId!} 
+        shopName={offer.shop?.name} 
+        offer={{ id: offer.offer_id, name: offer.offer_name }}
+        action="Add Bottles"
+      />
 
       {error && (
         <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md mb-4">
