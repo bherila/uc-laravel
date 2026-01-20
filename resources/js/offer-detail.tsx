@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { formatCurrency } from '@/lib/currency';
 
-import { ArrowLeft, Save, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 
 interface ManifestGroup {
   total: number;
@@ -77,6 +77,7 @@ function OfferDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [settingQty, setSettingQty] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [reloading, setReloading] = useState(false);
 
   const root = document.getElementById('offer-detail-root');
   const offerId = root?.dataset.offerId;
@@ -135,6 +136,18 @@ function OfferDetailPage() {
       alert(err?.error || 'Failed to delete manifest');
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleForceReload = async () => {
+    setReloading(true);
+    try {
+      await fetchWrapper.post(`${apiBase}/shops/${shopId}/offers/${offerId}/force-reload`, {});
+      await Promise.all([fetchOffer(), fetchShopifyProducts()]);
+    } catch (err: any) {
+      alert(err?.error || 'Failed to reload data');
+    } finally {
+      setReloading(false);
     }
   };
 
@@ -226,6 +239,18 @@ function OfferDetailPage() {
           className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
         >
           <a href={`/shop/${shopId}/offers/${offerId}/metafields`}>View Metafields</a>
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={handleForceReload}
+          disabled={reloading}
+        >
+          {reloading ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4 mr-2" />
+          )}
+          Force-Reload Shopify Data
         </Button>
       </div>
 

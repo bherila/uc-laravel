@@ -189,4 +189,18 @@ class OfferController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Force reload Shopify data for an offer
+     */
+    public function forceReload(Request $request, int $shop, int $offer): JsonResponse
+    {
+        try {
+            $offerService = $this->makeOfferService($request);
+            $offerService->forceReload($offer);
+            return response()->json(['message' => 'Cache flushed successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

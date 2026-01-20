@@ -29,6 +29,7 @@ class OfferService
     public function loadOfferList(?int $shopId = null, ?string $status = 'active', int $perPage = 25)
     {
         $query = Offer::with('shop:id,name,shop_domain')
+            ->withCount('manifests')
             ->withCount(['manifests as allocated_manifests_count' => function ($q) {
                 $q->whereNotNull('assignee_id');
             }])
@@ -57,6 +58,7 @@ class OfferService
                 'shop_id' => $offer->shop_id,
                 'shop' => $offer->shop,
                 'is_archived' => $offer->is_archived,
+                'total_manifests_count' => (int) $offer->manifests_count,
                 'allocated_manifests_count' => (int) $offer->allocated_manifests_count,
                 'offerProductData' => $productData ? [
                     ...$productData,
@@ -494,5 +496,28 @@ class OfferService
             'orders' => $processedOrders,
             'totals' => $totals,
         ];
+    }
+
+    /**
+     * Flush caches for all products/variants associated with an offer
+     *
+     * @param int $offerId
+     * @return void
+     */
+    public function forceReload(int $offerId): void
+    {
+        $offer = Offer::findOrFail($offerId);
+        
+        // 1. Clear deal SKU variant cache
+        $this->shopifyProductService->clearVariantCaches($offer->offer_variant_id);
+
+        // 2. Clear all manifest item variant caches
+        $manifestVariants = OfferManifest::where('offer_id', $offerId)
+            ->distinct()
+            ->pluck('mf_variant');
+
+        foreach ($manifestVariants as $variantId) {
+            $this->shopifyProductService->clearVariantCaches($variantId);
+        }
     }
 }

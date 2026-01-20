@@ -290,7 +290,7 @@ class ShopifyProductService
                         'tags' => $product['tags'] ?? [],
                     ];
 
-                    Cache::put('shopify_variant_data_' . md5($variantId), $data, 120);
+                    Cache::put('shopify_variant_data_' . md5($variantId), $data, 3600);
                     $result[$variantId] = $data;
                 }
             } catch (\Exception $e) {
@@ -325,7 +325,7 @@ class ShopifyProductService
     {
         $cacheKey = 'shopify_variant_detail_' . md5($offerVariantId);
 
-        return Cache::remember($cacheKey, 120, function () use ($offerId, $offerVariantId) {
+        return Cache::remember($cacheKey, 3600, function () use ($offerId, $offerVariantId) {
             try {
                 $response = $this->client->graphql(self::GQL_GET_VARIANT_DETAIL, ['id' => $offerVariantId]);
                 $node = $response['node'] ?? null;
@@ -478,7 +478,7 @@ class ShopifyProductService
 
         $cacheKey = 'shopify_products_' . $type;
 
-        return Cache::remember($cacheKey, 120, function () use ($type) {
+        return Cache::remember($cacheKey, 3600, function () use ($type) {
             $result = [];
             $cursor = null;
             $filter = "tag:{$type} status:active";
@@ -520,7 +520,7 @@ class ShopifyProductService
     /**
      * Clear all cached data related to a variant
      */
-    private function clearVariantCaches(string $variantId): void
+    public function clearVariantCaches(string $variantId): void
     {
         Cache::forget('shopify_variant_data_' . md5($variantId));
         Cache::forget('shopify_variant_detail_' . md5($variantId));
@@ -531,7 +531,7 @@ class ShopifyProductService
     /**
      * Clear all cached data related to a product
      */
-    private function clearProductCaches(string $productId): void
+    public function clearProductCaches(string $productId): void
     {
         // Since we don't easily know all variant IDs for a product here, 
         // and product metafields might affect variant data, we clear common caches
