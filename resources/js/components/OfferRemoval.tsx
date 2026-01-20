@@ -25,31 +25,41 @@ interface OfferRemovalProps {
   onDelete: (id: number) => Promise<void>;
 }
 
-export const OfferRemoval: React.FC<OfferRemovalProps> = ({
+export function OfferRemoval({
   offerId,
   allocatedCount,
   isDeleting,
   onDelete,
-}) => {
+}: OfferRemovalProps) {
+  const isDisabled = isDeleting || allocatedCount > 0;
+
+  const button = (
+    <div className="inline-block">
+      <Button
+        variant="destructive"
+        size="sm"
+        disabled={isDisabled}
+      >
+        {isDeleting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Trash2 className="h-4 w-4" />
+        )}
+      </Button>
+    </div>
+  );
+
   return (
     <AlertDialog>
       <Tooltip>
         <TooltipTrigger asChild>
-          <AlertDialogTrigger asChild>
-            <div className="inline-block">
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={isDeleting || allocatedCount > 0}
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </AlertDialogTrigger>
+          {isDisabled ? (
+            button
+          ) : (
+            <AlertDialogTrigger asChild>
+              {button}
+            </AlertDialogTrigger>
+          )}
         </TooltipTrigger>
         <TooltipContent>
           {allocatedCount > 0 
@@ -77,4 +87,4 @@ export const OfferRemoval: React.FC<OfferRemovalProps> = ({
       </AlertDialogContent>
     </AlertDialog>
   );
-};
+}
