@@ -27,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CleanupOffersButton } from '@/components/CleanupOffersButton';
+import { OfferRemoval } from '@/components/OfferRemoval';
 
 interface OfferProductData {
   variantId: string;
@@ -347,58 +348,48 @@ function OfferListPage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {offer.is_archived ? (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => unarchiveOffer(offer.offer_id)}
-                              disabled={isItemLoading}
-                            >
-                              {isItemLoading ? (
-                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                              ) : (
-                                <ArchiveRestore className="w-4 h-4 mr-1" />
-                              )}
-                              Unarchive
-                            </Button>
-                          ) : hasEnded ? (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => archiveOffer(offer.offer_id)}
-                              disabled={isItemLoading}
-                            >
-                              {isItemLoading ? (
-                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                              ) : (
-                                <Archive className="w-4 h-4 mr-1" />
-                              )}
-                              Archive
-                            </Button>
-                          ) : (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="inline-block">
-                                  <Button 
-                                    variant="destructive" 
-                                    size="sm" 
-                                    onClick={() => deleteOffer(offer.offer_id)}
-                                    disabled={isItemLoading || offer.allocated_manifests_count > 0}
-                                  >
-                                    {isItemLoading ? (
-                                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="w-4 h-4 mr-1" />
-                                    )}
-                                    Delete
-                                  </Button>
-                                </div>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => unarchiveOffer(offer.offer_id)}
+                                  disabled={isItemLoading}
+                                >
+                                  {isItemLoading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <ArchiveRestore className="w-4 h-4" />
+                                  )}
+                                </Button>
                               </TooltipTrigger>
-                              {offer.allocated_manifests_count > 0 && (
-                                <TooltipContent>
-                                  Cannot delete offer with {offer.allocated_manifests_count} allocated manifests
-                                </TooltipContent>
-                              )}
+                              <TooltipContent>Unarchive Offer</TooltipContent>
                             </Tooltip>
+                          ) : hasEnded ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => archiveOffer(offer.offer_id)}
+                                  disabled={isItemLoading}
+                                >
+                                  {isItemLoading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Archive className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Archive Offer</TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <OfferRemoval
+                              offerId={offer.offer_id}
+                              allocatedCount={offer.allocated_manifests_count}
+                              isDeleting={isItemLoading}
+                              onDelete={deleteOffer}
+                            />
                           )}
                         </div>
                       </TableCell>
