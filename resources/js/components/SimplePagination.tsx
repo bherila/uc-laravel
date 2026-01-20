@@ -9,7 +9,7 @@ interface PaginationProps {
   loading?: boolean;
 }
 
-export function AuditLogPagination({ currentPage, lastPage, onPageChange, loading }: PaginationProps) {
+export function SimplePagination({ currentPage, lastPage, onPageChange, loading }: PaginationProps) {
   if (lastPage <= 1) return null;
 
   return (

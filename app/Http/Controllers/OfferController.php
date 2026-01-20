@@ -42,7 +42,7 @@ class OfferController extends Controller
         $status = $request->query('status', 'active');
         $offerService = $this->makeOfferService($request);
         $result = $offerService->loadOfferList($shop, $status);
-        return response()->json($result['offerListItems']);
+        return response()->json($result);
     }
 
     /**

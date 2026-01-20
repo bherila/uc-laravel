@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { format } from 'date-fns';
 import { Search } from 'lucide-react';
-import { AuditLogPagination } from '@/components/AuditLogPagination';
+import { SimplePagination } from '@/components/SimplePagination';
 import { AuditLogDetailCell } from '@/components/AuditLogDetailCell';
 
 interface AuditLog {
@@ -124,7 +124,7 @@ function AdminAuditLogsPage() {
 
       <div className="flex justify-end mb-4">
         {data && (
-            <AuditLogPagination 
+            <SimplePagination 
                 currentPage={data.current_page} 
                 lastPage={data.last_page} 
                 onPageChange={handlePageChange}
@@ -192,7 +192,7 @@ function AdminAuditLogsPage() {
 
       <div className="flex justify-end mt-4">
         {data && (
-            <AuditLogPagination 
+            <SimplePagination 
                 currentPage={data.current_page} 
                 lastPage={data.last_page} 
                 onPageChange={handlePageChange}

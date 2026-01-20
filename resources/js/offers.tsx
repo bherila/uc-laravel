@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Archive, ArchiveRestore, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Trash2, Loader2 } from 'lucide-react';
+import { SimplePagination } from '@/components/SimplePagination';
 
 interface OfferProductData {
   variantId: string;
@@ -55,26 +56,57 @@ interface ShopifyProduct {
 
 // RenderRelativeTimeInterval component handles date formatting and live updates
 
+interface PaginatedResponse<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+  total: number;
+}
+
 function OfferListPage() {
-  const [offers, setOffers] = useState<Offer[]>([]);
+  const [data, setData] = useState<PaginatedResponse<Offer> | null>(null);
   const [shopifyData, setShopifyData] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<'active' | 'archived'>('active');
+  const [page, setPage] = useState(1);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
   
   const rootEl = document.getElementById('offers-root');
   const apiBase = rootEl?.dataset.apiBase || '/api';
   const shopId = rootEl?.dataset.shopId;
+  const canWrite = rootEl?.dataset.canWriteShop === 'true';
 
-  const fetchOffers = useCallback(async () => {
+  // Initialize from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pageParam = params.get('page');
+    const statusParam = params.get('status');
+    
+    if (pageParam) setPage(parseInt(pageParam, 10));
+    if (statusParam === 'active' || statusParam === 'archived') setStatus(statusParam);
+  }, []);
+
+  const fetchOffers = useCallback(async (pageNum: number, currentStatus: string) => {
+    setLoading(true);
     try {
-      const data = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers?status=${status}`);
-      setOffers(data);
+      // Update URL
+      const params = new URLSearchParams();
+      if (pageNum > 1) params.set('page', pageNum.toString());
+      if (currentStatus !== 'active') params.set('status', currentStatus);
+      
+      const newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+      window.history.replaceState({}, '', newUrl);
+
+      const result = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers?status=${currentStatus}&page=${pageNum}`);
+      setData(result);
     } catch (err) {
       setError('Failed to load offers');
       console.error(err);
+    } finally {
+      setLoading(false);
     }
-  }, [apiBase, shopId, status]);
+  }, [apiBase, shopId]);
 
   const fetchShopifyData = useCallback(async () => {
     try {
@@ -86,39 +118,60 @@ function OfferListPage() {
   }, [apiBase, shopId]);
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([fetchOffers(), fetchShopifyData()]).finally(() => setLoading(false));
-  }, [fetchOffers, fetchShopifyData]);
+    fetchOffers(page, status);
+  }, [page, status, fetchOffers]);
+
+  useEffect(() => {
+    fetchShopifyData();
+  }, [fetchShopifyData]);
 
   const deleteOffer = async (id: number) => {
     if (!confirm('Are you sure you want to delete this offer? This will also delete any unassigned manifests.')) {
       return;
     }
     
+    setActionLoading(id);
     try {
       await fetchWrapper.delete(`${apiBase}/shops/${shopId}/offers/${id}`, {});
-      fetchOffers();
+      fetchOffers(page, status);
     } catch (err: any) {
       alert(err?.error || 'Failed to delete offer');
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const archiveOffer = async (id: number) => {
+    setActionLoading(id);
     try {
       await fetchWrapper.post(`${apiBase}/shops/${shopId}/offers/${id}/archive`, {});
-      fetchOffers();
+      fetchOffers(page, status);
     } catch (err: any) {
       alert(err?.error || 'Failed to archive offer');
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const unarchiveOffer = async (id: number) => {
+    setActionLoading(id);
     try {
       await fetchWrapper.post(`${apiBase}/shops/${shopId}/offers/${id}/unarchive`, {});
-      fetchOffers();
+      fetchOffers(page, status);
     } catch (err: any) {
       alert(err?.error || 'Failed to unarchive offer');
+    } finally {
+      setActionLoading(null);
     }
+  };
+
+  const handleStatusChange = (val: 'active' | 'archived') => {
+    setStatus(val);
+    setPage(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
   };
 
   const getProductName = (offer: Offer): string => {
@@ -126,9 +179,9 @@ function OfferListPage() {
     return shopifyProduct?.productName || offer.offerProductData?.title || '-';
   };
 
-  const shopName = offers[0]?.shop?.name || 'Loading...';
+  const shopName = data?.data[0]?.shop?.name || 'Loading...';
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <Container>
         <div className="space-y-6">
@@ -168,21 +221,36 @@ function OfferListPage() {
       />
 
       <div className="mb-4 flex justify-between items-center">
-        <Button asChild>
-          <a href={`/shop/${shopId}/offers/new`}>Create New Offer</a>
-        </Button>
+        {canWrite ? (
+          <Button asChild>
+            <a href={`/shop/${shopId}/offers/new`}>Create New Offer</a>
+          </Button>
+        ) : (
+          <div />
+        )}
 
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">View:</span>
-          <Select value={status} onValueChange={(val: any) => setStatus(val)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active Offers</SelectItem>
-              <SelectItem value="archived">Archived Offers</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">View:</span>
+            <Select value={status} onValueChange={(val: any) => handleStatusChange(val)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active Offers</SelectItem>
+                <SelectItem value="archived">Archived Offers</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {data && (
+            <SimplePagination 
+                currentPage={data.current_page} 
+                lastPage={data.last_page} 
+                onPageChange={handlePageChange}
+                loading={loading}
+            />
+          )}
         </div>
       </div>
       <div className="rounded-md border">
@@ -193,24 +261,36 @@ function OfferListPage() {
               <TableHead>Offer Name</TableHead>
               <TableHead>Deal SKU</TableHead>
               <TableHead>Date from Metafield</TableHead>
-              <TableHead className="text-right w-[120px]">Action</TableHead>
+              {canWrite && <TableHead className="text-right w-[120px]">Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {offers.length === 0 ? (
+            {loading && !data ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    {canWrite && <TableCell><Skeleton className="h-4 w-20" /></TableCell>}
+                </TableRow>
+              ))
+            ) : !data || data.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={canWrite ? 5 : 4} className="text-center py-8 text-muted-foreground">
                   {status === 'active' ? 'No offers found. Create one to get started.' : 'No archived offers found.'}
                 </TableCell>
               </TableRow>
             ) : (
-              offers.map((offer) => {
+              data.data.map((offer) => {
                 const hasEnded = offer.offerProductData?.endDate 
                     ? new Date(offer.offerProductData.endDate) < new Date()
                     : false;
+                
+                const isItemLoading = actionLoading === offer.offer_id;
 
                 return (
-                  <TableRow key={offer.offer_id}>
+                  <TableRow key={offer.offer_id} className={loading ? 'opacity-50' : ''}>
                     <TableCell className="font-mono text-sm">{offer.offer_id}</TableCell>
                     <TableCell>
                       <a 
@@ -245,44 +325,72 @@ function OfferListPage() {
                         endDate={offer.offerProductData?.endDate}
                       />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {offer.is_archived ? (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => unarchiveOffer(offer.offer_id)}
-                          >
-                            <ArchiveRestore className="w-4 h-4 mr-1" />
-                            Unarchive
-                          </Button>
-                        ) : hasEnded ? (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => archiveOffer(offer.offer_id)}
-                          >
-                            <Archive className="w-4 h-4 mr-1" />
-                            Archive
-                          </Button>
-                        ) : (
-                          <Button 
-                            variant="destructive" 
-                            size="sm" 
-                            onClick={() => deleteOffer(offer.offer_id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Delete
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
+                    {canWrite && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {offer.is_archived ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => unarchiveOffer(offer.offer_id)}
+                              disabled={isItemLoading}
+                            >
+                              {isItemLoading ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <ArchiveRestore className="w-4 h-4 mr-1" />
+                              )}
+                              Unarchive
+                            </Button>
+                          ) : hasEnded ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => archiveOffer(offer.offer_id)}
+                              disabled={isItemLoading}
+                            >
+                              {isItemLoading ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Archive className="w-4 h-4 mr-1" />
+                              )}
+                              Archive
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => deleteOffer(offer.offer_id)}
+                              disabled={isItemLoading}
+                            >
+                              {isItemLoading ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4 mr-1" />
+                              )}
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex justify-end mt-4">
+        {data && (
+            <SimplePagination 
+                currentPage={data.current_page} 
+                lastPage={data.last_page} 
+                onPageChange={handlePageChange}
+                loading={loading}
+            />
+        )}
       </div>
     </Container>
   );

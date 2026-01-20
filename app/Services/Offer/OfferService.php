@@ -19,13 +19,14 @@ class OfferService
     ) {}
 
     /**
-     * Load all offers with their Shopify product data
+     * Load all offers with their Shopify product data (paginated)
      *
      * @param int|null $shopId Filter by shop ID if provided
      * @param string|null $status Filter by archived status ('active', 'archived')
-     * @return array{offerListItems: array, offerProductData: array}
+     * @param int $perPage
+     * @return \Illuminate\Pagination\LengthAwarePaginator
      */
-    public function loadOfferList(?int $shopId = null, ?string $status = 'active'): array
+    public function loadOfferList(?int $shopId = null, ?string $status = 'active', int $perPage = 25)
     {
         $query = Offer::with('shop:id,name,shop_domain')->orderBy('offer_id', 'desc');
         
@@ -39,15 +40,14 @@ class OfferService
             $query->where('is_archived', false);
         }
         
-        $offers = $query->get(['offer_id', 'offer_name', 'offer_variant_id', 'shop_id', 'is_archived']);
+        $paginatedOffers = $query->paginate($perPage, ['offer_id', 'offer_name', 'offer_variant_id', 'shop_id', 'is_archived']);
 
-        $variantIds = $offers->pluck('offer_variant_id')->toArray();
+        $variantIds = collect($paginatedOffers->items())->pluck('offer_variant_id')->toArray();
         $offerProductData = $this->shopifyProductService->getProductDataByVariantIds($variantIds);
 
-        $offerListItems = [];
-        foreach ($offers as $offer) {
+        $paginatedOffers->getCollection()->transform(function ($offer) use ($offerProductData) {
             $productData = $offerProductData[$offer->offer_variant_id] ?? null;
-            $offerListItems[] = [
+            return [
                 'offer_id' => $offer->offer_id,
                 'offer_name' => $offer->offer_name,
                 'shop_id' => $offer->shop_id,
@@ -58,12 +58,9 @@ class OfferService
                     'variantId' => $offer->offer_variant_id,
                 ] : null,
             ];
-        }
+        });
 
-        return [
-            'offerListItems' => $offerListItems,
-            'offerProductData' => $offerProductData,
-        ];
+        return $paginatedOffers;
     }
 
     /**
@@ -72,9 +69,20 @@ class OfferService
      * @param int $offerId
      * @param bool $isArchived
      * @return void
+     * @throws \RuntimeException
      */
     public function setArchived(int $offerId, bool $isArchived): void
     {
+        if ($isArchived) {
+            $offer = Offer::findOrFail($offerId);
+            $productData = $this->shopifyProductService->getProductDataByVariantId($offer->offer_variant_id);
+            
+            $endDate = $productData['endDate'] ?? null;
+            if (!$endDate || new \DateTime($endDate) > new \DateTime()) {
+                throw new \RuntimeException('Only ended offers can be archived');
+            }
+        }
+
         Offer::where('offer_id', $offerId)->update(['is_archived' => $isArchived]);
     }
 

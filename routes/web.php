@@ -36,7 +36,12 @@ Route::middleware('auth')->group(function () {
 
         // Offers
         Route::get('/offers', function ($shop) {
-            return view('offers', ['shopId' => $shop]);
+            $user = auth()->user();
+            $canWrite = $user->isAdmin() || $user->hasShopWriteAccess((int)$shop);
+            return view('offers', [
+                'shopId' => $shop,
+                'canWrite' => $canWrite
+            ]);
         })->name('shop.offers');
 
         Route::get('/offers/new', function ($shop) {
