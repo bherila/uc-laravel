@@ -35,8 +35,14 @@ class ShopifyWebhookController extends Controller
                 'payload' => $webhookData,
             ]);
 
-            // Find the shop by domain
-            $shop = ShopifyShop::where('shop_domain', $shopDomain)->first();
+            // Find the shop by domain (leniently)
+            $shopDomainClean = strtolower(trim($shopDomain));
+            $shopHandle = str_replace('.myshopify.com', '', $shopDomainClean);
+            
+            $shop = ShopifyShop::where('shop_domain', $shopDomainClean)
+                ->orWhere('shop_domain', $shopHandle)
+                ->orWhere('shop_domain', $shopHandle . '.myshopify.com')
+                ->first();
             
             if (!$shop) {
                 $this->log("Shop not found for domain: {$shopDomain}", null);
