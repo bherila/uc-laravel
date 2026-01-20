@@ -86,7 +86,7 @@ class ShopifyOrderProcessingService
         $shopifyOrder = $orders[0];
 
         if ($shopifyOrder['cancelledAt'] !== null) {
-            $this->logSub("Order {$orderIdUri} is cancelled, checking for assigned manifests...");
+            $this->logSub("Order {$orderIdUri} is cancelled, checking for assigned manifests and skipping further processing...");
 
             $rowsAffected = OfferManifest::where('assignee_id', $orderIdUri)->update(['assignee_id' => null]);
 
