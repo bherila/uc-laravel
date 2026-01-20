@@ -33,8 +33,6 @@ class AuditLogController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('event_name', 'like', "%{$search}%")
                   ->orWhere('event_ext', 'like', "%{$search}%")
-                  ->orWhere('source', 'like', "%{$search}%")
-                  ->orWhere('message', 'like', "%{$search}%")
                   ->orWhere('order_id', 'like', "%{$search}%")
                   ->orWhere('offer_id', 'like', "%{$search}%");
             });

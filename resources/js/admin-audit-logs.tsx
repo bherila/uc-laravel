@@ -11,14 +11,14 @@ import { fetchWrapper } from '@/fetchWrapper';
 import { format } from 'date-fns';
 import { Search } from 'lucide-react';
 import { AuditLogPagination } from '@/components/AuditLogPagination';
+import { AuditLogDetailCell } from '@/components/AuditLogDetailCell';
 
 interface AuditLog {
   id: number;
   event_ts: string;
-  source: string;
   event_name: string;
   event_ext: string | null;
-  message: string | null;
+  event_userid: number | null;
   offer_id: number | null;
   order_id: number | null;
   time_taken_ms: number | null;
@@ -39,6 +39,7 @@ function AdminAuditLogsPage() {
   // State for search query and pagination
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(1);
+  const [inputValue, setInputValue] = useState('');
 
   const rootEl = document.getElementById('admin-audit-logs-root');
   const apiBase = rootEl?.dataset.apiBase || '/api';
@@ -84,19 +85,6 @@ function AdminAuditLogsPage() {
     fetchLogs(page, searchText);
   }, [page, searchText, fetchLogs]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1); // Reset to page 1 on new search
-    // fetchLogs will be triggered by useEffect dependency on page/searchText
-    // However, if page is already 1, we need to ensure fetch happens if search changed
-    // But searchText state update triggers effect.
-    // The issue is if we type in input but don't submit, searchText isn't updated?
-    // Ah, we should have a separate state for input value vs active search query.
-  };
-
-  // Refactor to separate input state from active search state
-  const [inputValue, setInputValue] = useState('');
-  
   // Sync input value with URL param on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -154,7 +142,7 @@ function AdminAuditLogsPage() {
               <TableRow>
                 <TableHead className="w-20">ID</TableHead>
                 <TableHead className="w-40">Time</TableHead>
-                <TableHead className="w-32">Source</TableHead>
+                <TableHead className="w-24">User</TableHead>
                 <TableHead className="w-40">Event</TableHead>
                 <TableHead>Details</TableHead>
                 <TableHead className="w-24">Refs</TableHead>
@@ -185,12 +173,10 @@ function AdminAuditLogsPage() {
                     <TableCell className="text-xs text-gray-500 whitespace-nowrap">
                       {format(new Date(log.event_ts), 'MMM d, HH:mm:ss')}
                     </TableCell>
-                    <TableCell className="text-sm font-medium">{log.source}</TableCell>
+                    <TableCell className="text-sm font-medium">{log.event_userid || '-'}</TableCell>
                     <TableCell className="text-sm">{log.event_name}</TableCell>
                     <TableCell className="text-sm">
-                        <div className="max-w-lg break-words">
-                            {log.event_ext || log.message}
-                        </div>
+                        <AuditLogDetailCell detail={log.event_ext} />
                     </TableCell>
                     <TableCell className="text-xs">
                         {log.offer_id && <div className="whitespace-nowrap">Offer: {log.offer_id}</div>}
