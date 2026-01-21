@@ -684,12 +684,17 @@ CREATE TABLE `webhooks` (
   `updated_at` timestamp NULL DEFAULT NULL,
   `payload` text DEFAULT NULL,
   `headers` text DEFAULT NULL,
+  `shopify_topic` varchar(255) DEFAULT NULL,
+  `shop_id` bigint(20) unsigned DEFAULT NULL,
   `valid_hmac` tinyint(1) DEFAULT NULL,
   `valid_shop_matched` tinyint(1) DEFAULT NULL,
   `error_ts` timestamp NULL DEFAULT NULL,
   `success_ts` timestamp NULL DEFAULT NULL,
   `error_message` text DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `webhooks_shopify_topic_index` (`shopify_topic`),
+  KEY `webhooks_shop_id_foreign` (`shop_id`),
+  CONSTRAINT `webhooks_shop_id_foreign` FOREIGN KEY (`shop_id`) REFERENCES `shopify_shops` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 --
@@ -714,3 +719,4 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (10,'2026_01_20_040
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (11,'2026_01_20_062828_create_webhooks_tables',7);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (12,'2026_01_20_065704_add_time_taken_ms_to_webhook_subs_table',8);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (13,'2026_01_20_080132_add_is_archived_to_v3_offer_table',9);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (14,'2026_01_20_090000_add_topic_and_shop_id_to_webhooks_table',10);
