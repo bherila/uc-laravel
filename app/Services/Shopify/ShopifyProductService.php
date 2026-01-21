@@ -487,6 +487,72 @@ class ShopifyProductService
     }
 
     /**
+     * Resolve multiple variant IDs from a list of SKU strings
+     *
+     * @param array<string> $skus
+     * @return array<string, string> Map of SKU to Variant ID
+     */
+    public function getVariantIdsBySkus(array $skus): array
+    {
+        if (empty($skus)) {
+            return [];
+        }
+
+        $results = [];
+        $skusToFetch = [];
+
+        foreach ($skus as $sku) {
+            $cacheKey = 'shopify_variant_id_by_sku_' . md5($sku);
+            $cached = Cache::get($cacheKey);
+            if ($cached) {
+                $results[$sku] = $cached;
+            } else {
+                $skusToFetch[] = $sku;
+            }
+        }
+
+        if (!empty($skusToFetch)) {
+            // Shopify search query limit is roughly 25-50 terms depending on complexity
+            // We'll chunk them just in case
+            $chunks = array_chunk($skusToFetch, 20);
+
+            foreach ($chunks as $chunk) {
+                $filterParts = array_map(function ($s) {
+                    $safe = str_replace(['"', "'", '\\'], '', $s);
+                    return "sku:{$safe}";
+                }, $chunk);
+                
+                $filter = implode(' OR ', $filterParts);
+
+                try {
+                    $response = $this->client->graphql(self::GQL_LOAD_PRODUCTS, [
+                        'cursor' => null,
+                        'filter' => $filter,
+                    ]);
+
+                    foreach ($response['products']['edges'] ?? [] as $productEdge) {
+                        foreach ($productEdge['node']['variants']['nodes'] ?? [] as $variant) {
+                            $foundSku = $variant['sku'] ?? '';
+                            // Find which requested SKU this matches (case-insensitive)
+                            foreach ($chunk as $requestedSku) {
+                                if (strtolower($foundSku) === strtolower($requestedSku)) {
+                                    $results[$requestedSku] = $variant['id'];
+                                    Cache::put('shopify_variant_id_by_sku_' . md5($requestedSku), $variant['id'], 3600);
+                                }
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $this->logError($e, 'shopifyGetVariantIdsBySkus');
+                    // Continue to next chunk
+                }
+            }
+        }
+
+        return $results;
+    }
+
+    /**
      * Alias for setVariantQuantity - used by controller
      *
      * @param string $variantId

@@ -78,33 +78,34 @@ class OfferManifestController extends Controller
         ]);
 
         $items = $validated['items'];
+        $skusToResolve = [];
         $resolvedManifests = [];
-        $errors = [];
+        $skuToQty = [];
 
         foreach ($items as $item) {
             $sku = $item['sku'];
             $qty = $item['qty'];
 
-            // If it's already a GID, use it directly
             if (str_starts_with($sku, 'gid://shopify/ProductVariant/')) {
                 $resolvedManifests[] = ['sku' => $sku, 'qty' => $qty];
-                continue;
-            }
-
-            // Resolve SKU to Variant ID
-            $variantId = $productService->getVariantIdBySku($sku);
-            if ($variantId) {
-                $resolvedManifests[] = ['sku' => $variantId, 'qty' => $qty];
             } else {
-                $errors[] = "Could not resolve SKU: {$sku}";
+                $skusToResolve[] = $sku;
+                $skuToQty[$sku] = $qty;
             }
         }
 
-        if (!empty($errors)) {
-            return response()->json([
-                'error' => 'Some SKUs could not be resolved',
-                'details' => $errors
-            ], 422);
+        if (!empty($skusToResolve)) {
+            $resolvedSkus = $productService->getVariantIdsBySkus($skusToResolve);
+            foreach ($skusToResolve as $sku) {
+                if (isset($resolvedSkus[$sku])) {
+                    $resolvedManifests[] = ['sku' => $resolvedSkus[$sku], 'qty' => $skuToQty[$sku]];
+                } else {
+                    return response()->json([
+                        'error' => 'Some SKUs could not be resolved',
+                        'details' => ["Could not resolve SKU: {$sku}"]
+                    ], 422);
+                }
+            }
         }
 
         try {
@@ -128,30 +129,43 @@ class OfferManifestController extends Controller
         ]);
 
         $skus = array_unique($validated['skus']);
+        $skusToResolve = [];
+        $skuToGid = [];
         $results = [];
 
         foreach ($skus as $sku) {
-            $variantId = null;
-            
-            // If it's already a GID, use it directly
             if (str_starts_with($sku, 'gid://shopify/ProductVariant/')) {
-                $variantId = $sku;
+                $skuToGid[$sku] = $sku;
             } else {
-                $variantId = $productService->getVariantIdBySku($sku);
+                $skusToResolve[] = $sku;
             }
+        }
 
-            if ($variantId) {
-                $productData = $productService->getProductDataByVariantId($variantId);
+        // Batch resolve SKUs to GIDs
+        if (!empty($skusToResolve)) {
+            $resolvedSkus = $productService->getVariantIdsBySkus($skusToResolve);
+            foreach ($skusToResolve as $sku) {
+                if (isset($resolvedSkus[$sku])) {
+                    $skuToGid[$sku] = $resolvedSkus[$sku];
+                } else {
+                    $results[$sku] = ['valid' => false, 'error' => 'Not found'];
+                }
+            }
+        }
+
+        // Batch fetch product data for all resolved GIDs
+        $allGids = array_values(array_filter($skuToGid));
+        $allProductData = $productService->getProductDataByVariantIds($allGids);
+
+        foreach ($skuToGid as $sku => $gid) {
+            if (isset($allProductData[$gid])) {
                 $results[$sku] = [
                     'valid' => true,
-                    'variantId' => $variantId,
-                    'productName' => $productData['title'] ?? 'Unknown Product',
+                    'variantId' => $gid,
+                    'productName' => $allProductData[$gid]['title'] ?? 'Unknown Product',
                 ];
             } else {
-                $results[$sku] = [
-                    'valid' => false,
-                    'error' => 'Not found',
-                ];
+                $results[$sku] = ['valid' => false, 'error' => 'Not found in Shopify'];
             }
         }
 
