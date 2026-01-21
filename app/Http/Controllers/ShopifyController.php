@@ -36,6 +36,7 @@ class ShopifyController extends Controller
     public function products(Request $request): JsonResponse
     {
         $type = $request->query('type');
+        $excludeExisting = $request->query('exclude_existing_offers') === '1';
 
         if (!$type || !in_array($type, ['deal', 'manifest-item'])) {
             return response()->json(['error' => 'Invalid type parameter. Must be "deal" or "manifest-item"'], 400);
@@ -44,6 +45,16 @@ class ShopifyController extends Controller
         try {
             $productService = $this->makeProductService($request);
             $products = $productService->loadProducts($type);
+
+            if ($excludeExisting) {
+                $existingVariantIds = \App\Models\Offer::pluck('offer_variant_id')->toArray();
+                $products = array_filter($products, function($p) use ($existingVariantIds) {
+                    return !in_array($p['variantId'], $existingVariantIds);
+                });
+                // Re-index array after filtering
+                $products = array_values($products);
+            }
+
             return response()->json($products);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);

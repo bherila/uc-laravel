@@ -94,22 +94,9 @@ function NewOfferPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load available deal products and existing offers in parallel
-        const [productsData, offersData] = await Promise.all([
-          fetchWrapper.get(`${apiBase}/shops/${shopId}/shopify/products?type=deal`),
-          fetchWrapper.get(`${apiBase}/shops/${shopId}/offers`),
-        ]);
-
-        const existingVariantIds = (offersData.data || [])
-          .map((offer: any) => offer.offerProductData?.variantId)
-          .filter(Boolean);
-
-        // Remove products that already have an offer
-        const availableProducts = productsData.filter(
-          (p: ShopifyProduct) => !existingVariantIds.includes(p.variantId)
-        );
-
-        setProducts(availableProducts);
+        // Load available deal products that don't already have an offer
+        const productsData = await fetchWrapper.get(`${apiBase}/shops/${shopId}/shopify/products?type=deal&exclude_existing_offers=1`);
+        setProducts(productsData);
       } catch (err) {
         console.error('Failed to load data:', err);
         setError('Failed to load product data');
