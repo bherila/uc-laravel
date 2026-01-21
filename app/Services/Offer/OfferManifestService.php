@@ -31,15 +31,20 @@ class OfferManifestService
                 $sku = $item['sku'];
                 $qty = $item['qty'];
 
-                // Get current count of unassigned manifests for this SKU
-                $currentCount = OfferManifest::where('offer_id', $offerId)
+                // Get total count of manifests for this SKU (assigned + unassigned)
+                $totalCount = OfferManifest::where('offer_id', $offerId)
+                    ->where('mf_variant', $sku)
+                    ->count();
+
+                // Get unassigned count (the only ones we can safely delete)
+                $unassignedCount = OfferManifest::where('offer_id', $offerId)
                     ->where('mf_variant', $sku)
                     ->whereNull('assignee_id')
                     ->count();
 
-                if ($qty > $currentCount) {
-                    // Need to add more manifests
-                    $toAdd = $qty - $currentCount;
+                if ($qty > $totalCount) {
+                    // Need to add more manifests to reach target total
+                    $toAdd = $qty - $totalCount;
                     $maxOrdering = OfferManifest::where('offer_id', $offerId)->max('assignment_ordering') ?? 0;
 
                     for ($i = 0; $i < $toAdd; $i++) {
@@ -50,15 +55,18 @@ class OfferManifestService
                             'assignment_ordering' => $maxOrdering + $i + 1,
                         ]);
                     }
-                } elseif ($qty < $currentCount) {
-                    // Need to remove some unassigned manifests
-                    $toRemove = $currentCount - $qty;
-                    OfferManifest::where('offer_id', $offerId)
-                        ->where('mf_variant', $sku)
-                        ->whereNull('assignee_id')
-                        ->orderBy('assignment_ordering', 'desc')
-                        ->limit($toRemove)
-                        ->delete();
+                } elseif ($qty < $totalCount) {
+                    // Need to remove manifests to reach target total
+                    $toRemove = min($totalCount - $qty, $unassignedCount);
+                    
+                    if ($toRemove > 0) {
+                        OfferManifest::where('offer_id', $offerId)
+                            ->where('mf_variant', $sku)
+                            ->whereNull('assignee_id')
+                            ->orderBy('assignment_ordering', 'desc')
+                            ->limit($toRemove)
+                            ->delete();
+                    }
                 }
             }
         });
