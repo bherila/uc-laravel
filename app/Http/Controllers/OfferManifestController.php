@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Services\Offer\OfferManifestService;
+use App\Services\Shopify\ShopifyProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class OfferManifestController extends Controller
 {
     public function __construct(
-        private OfferManifestService $manifestService
+        private OfferManifestService $manifestService,
+        private ShopifyProductService $productService
     ) {}
 
     /**
@@ -39,6 +41,55 @@ class OfferManifestController extends Controller
         try {
             $this->manifestService->putSkuQty($offer, $validated[$payloadKey]);
             return response()->json(['message' => 'Manifest quantities updated']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Import manifest items by SKU and quantity
+     */
+    public function import(Request $request, int $shop, int $offer): JsonResponse
+    {
+        $validated = $request->validate([
+            'items' => 'required|array',
+            'items.*.sku' => 'required|string',
+            'items.*.qty' => 'required|integer|min:0',
+        ]);
+
+        $items = $validated['items'];
+        $resolvedManifests = [];
+        $errors = [];
+
+        foreach ($items as $item) {
+            $sku = $item['sku'];
+            $qty = $item['qty'];
+
+            // If it's already a GID, use it directly
+            if (str_starts_with($sku, 'gid://shopify/ProductVariant/')) {
+                $resolvedManifests[] = ['sku' => $sku, 'qty' => $qty];
+                continue;
+            }
+
+            // Resolve SKU to Variant ID
+            $variantId = $this->productService->getVariantIdBySku($sku);
+            if ($variantId) {
+                $resolvedManifests[] = ['sku' => $variantId, 'qty' => $qty];
+            } else {
+                $errors[] = "Could not resolve SKU: {$sku}";
+            }
+        }
+
+        if (!empty($errors)) {
+            return response()->json([
+                'error' => 'Some SKUs could not be resolved',
+                'details' => $errors
+            ], 422);
+        }
+
+        try {
+            $this->manifestService->putSkuQty($offer, $resolvedManifests);
+            return response()->json(['message' => 'Successfully imported ' . count($resolvedManifests) . ' products']);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }

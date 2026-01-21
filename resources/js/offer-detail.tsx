@@ -14,6 +14,7 @@ import { fetchWrapper } from '@/fetchWrapper';
 import { formatCurrency } from '@/lib/currency';
 import { OfferItemRemoval } from '@/components/OfferItemRemoval';
 import { OfferExportCsvButton } from '@/components/OfferExportCsvButton';
+import { OfferImportCsvButton } from '@/components/OfferImportCsvButton';
 
 import { ArrowLeft, Save, Plus, Trash2, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 
@@ -246,17 +247,23 @@ function OfferDetailPage() {
                   >
                     <a href={`/shop/${shopId}/offers/${offerId}/metafields`}>View Metafields</a>
                   </Button>
-                  {hasManifestProducts && (
-                    <OfferExportCsvButton
-                      shopId={shopId!}
-                      offerId={offerId!}
-                      manifestGroups={offer.manifestGroups}
-                      manifestProductData={offer.manifestProductData}
-                      shopifyProducts={shopifyProducts}
-                    />
-                  )}
-                  <Button
-                    variant="secondary"
+                            {hasManifestProducts && (
+                              <OfferExportCsvButton
+                                shopId={shopId!}
+                                offerId={offerId!}
+                                manifestGroups={offer.manifestGroups}
+                                manifestProductData={offer.manifestProductData}
+                                shopifyProducts={shopifyProducts}
+                              />
+                            )}
+                            {canWrite && (
+                              <OfferImportCsvButton
+                                shopId={shopId!}
+                                offerId={offerId!}
+                                onImportSuccess={fetchOffer}
+                              />
+                            )}
+                            <Button                    variant="secondary"
                     onClick={handleForceReload}
                     disabled={reloading}
                   >          {reloading ? (

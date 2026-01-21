@@ -42,6 +42,7 @@ Route::middleware(['auth', 'shop.access'])->prefix('shops/{shop}')->group(functi
     // Offer Manifests
     Route::get('offers/{offer}/manifests', [OfferManifestController::class, 'index']);
     Route::put('offers/{offer}/manifests', [OfferManifestController::class, 'update'])->middleware('shop.access:write');
+    Route::post('offers/{offer}/manifests/import', [OfferManifestController::class, 'import'])->middleware('shop.access:write');
 
     // Shopify (shop-specific)
     Route::get('shopify/products', [ShopifyController::class, 'products']);

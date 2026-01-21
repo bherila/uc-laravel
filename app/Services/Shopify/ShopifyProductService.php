@@ -455,6 +455,38 @@ class ShopifyProductService
     }
 
     /**
+     * Resolve a variant ID from a SKU string
+     *
+     * @param string $sku
+     * @return string|null
+     */
+    public function getVariantIdBySku(string $sku): ?string
+    {
+        $cacheKey = 'shopify_variant_id_by_sku_' . md5($sku);
+
+        return Cache::remember($cacheKey, 3600, function () use ($sku) {
+            // Sanitize SKU for search
+            $safeSku = str_replace(['"', "'", '\\'], '', $sku);
+            $filter = "sku:{$safeSku}";
+
+            $response = $this->client->graphql(self::GQL_LOAD_PRODUCTS, [
+                'cursor' => null,
+                'filter' => $filter,
+            ]);
+
+            foreach ($response['products']['edges'] ?? [] as $productEdge) {
+                foreach ($productEdge['node']['variants']['nodes'] ?? [] as $variant) {
+                    if (strtolower($variant['sku'] ?? '') === strtolower($sku)) {
+                        return $variant['id'];
+                    }
+                }
+            }
+
+            return null;
+        });
+    }
+
+    /**
      * Alias for setVariantQuantity - used by controller
      *
      * @param string $variantId
