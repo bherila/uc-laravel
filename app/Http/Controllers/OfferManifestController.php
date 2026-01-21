@@ -94,4 +94,37 @@ class OfferManifestController extends Controller
             return response()->json(['error' => $e->getMessage()], 422);
         }
     }
+
+    /**
+     * Validate a list of SKUs against Shopify
+     */
+    public function validate(Request $request, int $shop, int $offer): JsonResponse
+    {
+        $validated = $request->validate([
+            'skus' => 'required|array',
+            'skus.*' => 'required|string',
+        ]);
+
+        $skus = array_unique($validated['skus']);
+        $results = [];
+
+        foreach ($skus as $sku) {
+            $variantId = $this->productService->getVariantIdBySku($sku);
+            if ($variantId) {
+                $productData = $this->productService->getProductDataByVariantId($variantId);
+                $results[$sku] = [
+                    'valid' => true,
+                    'variantId' => $variantId,
+                    'productName' => $productData['title'] ?? 'Unknown Product',
+                ];
+            } else {
+                $results[$sku] = [
+                    'valid' => false,
+                    'error' => 'Not found',
+                ];
+            }
+        }
+
+        return response()->json($results);
+    }
 }

@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileUp, Clipboard, Loader2, AlertCircle, X } from 'lucide-react';
+import { FileUp, Clipboard, Loader2, AlertCircle, X, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { splitDelimitedText } from '@/lib/splitDelimitedText';
 import { fetchWrapper } from '@/fetchWrapper';
@@ -17,6 +17,10 @@ import { fetchWrapper } from '@/fetchWrapper';
 interface ImportItem {
   sku: string;
   qty: number;
+  productName?: string;
+  isValid?: boolean;
+  isVerifying?: boolean;
+  error?: string;
 }
 
 interface OfferImportCsvButtonProps {
@@ -33,10 +37,42 @@ export function OfferImportCsvButton({
   const [open, setOpen] = useState(false);
   const [importData, setImportData] = useState<ImportItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const parseCsv = (text: string) => {
+  const validateSkus = async (items: ImportItem[]) => {
+    setValidating(true);
+    try {
+      const skus = Array.from(new Set(items.map(item => item.sku)));
+      const apiBase = document.getElementById('offer-detail-root')?.dataset.apiBase || '/api';
+      
+      const validationResults = await fetchWrapper.put(
+        `${apiBase}/shops/${shopId}/offers/${offerId}/manifests/import`,
+        { skus }
+      );
+
+      setImportData(prev => prev.map(item => {
+        const result = validationResults[item.sku];
+        if (result) {
+          return {
+            ...item,
+            isValid: result.valid,
+            productName: result.productName,
+            error: result.error,
+          };
+        }
+        return item;
+      }));
+    } catch (err) {
+      console.error('Validation failed', err);
+      toast.error('Failed to validate SKUs with Shopify');
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const parseCsv = async (text: string) => {
     try {
       setError(null);
       const rows = splitDelimitedText(text, ',');
@@ -46,7 +82,6 @@ export function OfferImportCsvButton({
       let skuIdx = 0;
       let qtyIdx = 1;
 
-      // Check for headers in the first row
       const firstRow = rows[0];
       if (!firstRow) return;
 
@@ -61,7 +96,6 @@ export function OfferImportCsvButton({
 
       if (hasHeader) {
         startIndex = 1;
-        // Try to find indices
         const sIdx = firstRowLower.findIndex(c => c.includes('sku') || c.includes('variant id'));
         const qIdx = firstRowLower.findIndex(c => c.includes('offered') || c.includes('qty') || c.includes('quantity'));
         
@@ -79,7 +113,7 @@ export function OfferImportCsvButton({
         const qty = parseInt(qtyStr, 10);
 
         if (sku && !isNaN(qty)) {
-          items.push({ sku, qty });
+          items.push({ sku, qty, isVerifying: true });
         }
       }
 
@@ -87,6 +121,7 @@ export function OfferImportCsvButton({
         setError('No valid data found in CSV. Expected columns: SKU, Quantity.');
       } else {
         setImportData(items);
+        await validateSkus(items);
       }
     } catch (err) {
       console.error(err);
@@ -121,9 +156,9 @@ export function OfferImportCsvButton({
     try {
       const apiBase = document.getElementById('offer-detail-root')?.dataset.apiBase || '/api';
       await fetchWrapper.post(`${apiBase}/shops/${shopId}/offers/${offerId}/manifests/import`, {
-        items: importData,
+        items: importData.filter(i => i.isValid).map(i => ({ sku: i.sku, qty: i.qty })),
       });
-      toast.success(`Successfully imported ${importData.length} items`);
+      toast.success(`Successfully imported ${importData.filter(i => i.isValid).length} items`);
       setOpen(false);
       setImportData([]);
       onImportSuccess();
@@ -142,6 +177,9 @@ export function OfferImportCsvButton({
     setError(null);
   };
 
+  const allValid = importData.length > 0 && importData.every(i => i.isValid);
+  const someValid = importData.some(i => i.isValid);
+
   return (
     <Dialog open={open} onOpenChange={(val) => {
         setOpen(val);
@@ -153,7 +191,7 @@ export function OfferImportCsvButton({
           Import CSV
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Import Manifest Items (CSV)</DialogTitle>
         </DialogHeader>
@@ -198,33 +236,43 @@ export function OfferImportCsvButton({
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-medium">{importData.length} items ready to import</h3>
+                <div className="flex items-center gap-2">
+                    <h3 className="font-medium">{importData.length} items parsed</h3>
+                    {validating && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                </div>
                 <Button variant="ghost" size="sm" onClick={reset}>
                   <X className="w-4 h-4 mr-2" /> Clear
                 </Button>
               </div>
-              <div className="rounded-md border max-h-64 overflow-y-auto">
+              <div className="rounded-md border max-h-96 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]">Status</TableHead>
                       <TableHead>SKU</TableHead>
+                      <TableHead>Product Name</TableHead>
                       <TableHead className="text-right">Quantity</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {importData.slice(0, 100).map((item, i) => (
-                      <TableRow key={i}>
+                    {importData.map((item, i) => (
+                      <TableRow key={i} className={!item.isValid && !validating && item.productName === undefined ? 'bg-destructive/5' : ''}>
+                        <TableCell>
+                          {validating && !item.productName ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          ) : item.isValid ? (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          ) : item.isValid === false ? (
+                            <XCircle className="w-4 h-4 text-destructive" />
+                          ) : null}
+                        </TableCell>
                         <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                        <TableCell className="text-right">{item.qty}</TableCell>
+                        <TableCell className="text-sm">
+                            {item.productName || (item.isValid === false ? <span className="text-destructive text-xs">Not found in Shopify</span> : '-')}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">{item.qty}</TableCell>
                       </TableRow>
                     ))}
-                    {importData.length > 100 && (
-                      <TableRow>
-                        <TableCell colSpan={2} className="text-center text-muted-foreground text-xs py-2">
-                          ... and {importData.length - 100} more items
-                        </TableCell>
-                      </TableRow>
-                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -245,10 +293,10 @@ export function OfferImportCsvButton({
           </Button>
           <Button 
             onClick={handleImport} 
-            disabled={importData.length === 0 || loading}
+            disabled={importData.length === 0 || loading || validating || !someValid}
           >
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {loading ? 'Importing...' : 'Import Products'}
+            {loading ? 'Importing...' : `Import ${importData.filter(i => i.isValid).length} Products`}
           </Button>
         </DialogFooter>
       </DialogContent>
