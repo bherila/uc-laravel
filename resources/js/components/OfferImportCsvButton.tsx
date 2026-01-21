@@ -96,10 +96,22 @@ export function OfferImportCsvButton({
 
       if (hasHeader) {
         startIndex = 1;
-        const sIdx = firstRowLower.findIndex(c => c.includes('sku') || c.includes('variant id'));
-        const qIdx = firstRowLower.findIndex(c => c.includes('offered') || c.includes('qty') || c.includes('quantity'));
+        // Try to find indices with priority
+        const sIdx = firstRowLower.indexOf('sku');
+        const vIdx = firstRowLower.indexOf('variant id');
+        const qIdx = firstRowLower.findIndex(c => 
+            c === 'num offered' || 
+            c === 'qty' || 
+            c === 'quantity' || 
+            c.includes('offered')
+        );
         
-        if (sIdx !== -1) skuIdx = sIdx;
+        if (sIdx !== -1) {
+            skuIdx = sIdx;
+        } else if (vIdx !== -1) {
+            skuIdx = vIdx;
+        }
+        
         if (qIdx !== -1) qtyIdx = qIdx;
       }
 

@@ -109,7 +109,15 @@ class OfferManifestController extends Controller
         $results = [];
 
         foreach ($skus as $sku) {
-            $variantId = $this->productService->getVariantIdBySku($sku);
+            $variantId = null;
+            
+            // If it's already a GID, use it directly
+            if (str_starts_with($sku, 'gid://shopify/ProductVariant/')) {
+                $variantId = $sku;
+            } else {
+                $variantId = $this->productService->getVariantIdBySku($sku);
+            }
+
             if ($variantId) {
                 $productData = $this->productService->getProductDataByVariantId($variantId);
                 $results[$sku] = [
