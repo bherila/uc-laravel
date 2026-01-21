@@ -18,6 +18,7 @@ interface Metafields {
 function MetafieldsPage() {
   const [metafields, setMetafields] = useState<Metafields | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pushing, setPushing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offer, setOffer] = useState<any>(null);
 
@@ -25,6 +26,20 @@ function MetafieldsPage() {
   const offerId = root?.dataset.offerId;
   const shopId = root?.dataset.shopId;
   const apiBase = root?.dataset.apiBase || '/api';
+
+  const handlePushMetafields = async () => {
+    setPushing(true);
+    setError(null);
+    try {
+      const metafieldsData = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}/metafields`);
+      setMetafields(metafieldsData);
+    } catch (err: any) {
+      console.error('Failed to push metafields:', err);
+      setError(err?.error || 'Failed to push metafields');
+    } finally {
+      setPushing(false);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -80,9 +95,15 @@ function MetafieldsPage() {
         action="Metafields"
       />
 
-      <div className="mb-6">
+      <div className="mb-6 flex justify-between items-center">
         <Button variant="outline" asChild>
           <a href={`/shop/${shopId}/offers/${offerId}`}>← Back to Offer Details</a>
+        </Button>
+        <Button 
+          onClick={handlePushMetafields} 
+          disabled={pushing || loading}
+        >
+          {pushing ? 'Pushing...' : 'Push Metafields to Shopify'}
         </Button>
       </div>
 
