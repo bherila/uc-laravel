@@ -157,12 +157,21 @@ class OfferManifestController extends Controller
         $allGids = array_values(array_filter($skuToGid));
         $allProductData = $productService->getProductDataByVariantIds($allGids);
 
+        // Get current manifest counts for this offer to show "current qty in offer"
+        $currentCounts = \App\Models\OfferManifest::where('offer_id', $offer)
+            ->whereIn('mf_variant', $allGids)
+            ->selectRaw('mf_variant, COUNT(*) as count')
+            ->groupBy('mf_variant')
+            ->pluck('count', 'mf_variant')
+            ->toArray();
+
         foreach ($skuToGid as $sku => $gid) {
             if (isset($allProductData[$gid])) {
                 $results[$sku] = [
                     'valid' => true,
                     'variantId' => $gid,
                     'productName' => $allProductData[$gid]['title'] ?? 'Unknown Product',
+                    'currentQty' => $currentCounts[$gid] ?? 0,
                 ];
             } else {
                 $results[$sku] = ['valid' => false, 'error' => 'Not found in Shopify'];

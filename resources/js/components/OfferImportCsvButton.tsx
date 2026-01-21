@@ -18,6 +18,7 @@ interface ImportItem {
   sku: string;
   qty: number;
   productName?: string;
+  currentQty?: number;
   isValid?: boolean;
   isVerifying?: boolean;
   error?: string;
@@ -59,6 +60,7 @@ export function OfferImportCsvButton({
             ...item,
             isValid: result.valid,
             productName: result.productName,
+            currentQty: result.currentQty,
             error: result.error,
           };
         }
@@ -263,7 +265,8 @@ export function OfferImportCsvButton({
                       <TableHead className="w-[50px]">Status</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Product Name</TableHead>
-                      <TableHead className="text-right">Quantity</TableHead>
+                      <TableHead className="text-right">Qty in Offer</TableHead>
+                      <TableHead className="text-right">Desired Qty</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -281,6 +284,9 @@ export function OfferImportCsvButton({
                         <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                         <TableCell className="text-sm">
                             {item.productName || (item.isValid === false ? <span className="text-destructive text-xs">Not found in Shopify</span> : '-')}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                            {item.currentQty !== undefined ? item.currentQty : '-'}
                         </TableCell>
                         <TableCell className="text-right font-medium">{item.qty}</TableCell>
                       </TableRow>
