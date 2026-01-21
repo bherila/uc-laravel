@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { formatCurrency } from '@/lib/currency';
 import { OfferItemRemoval } from '@/components/OfferItemRemoval';
+import { OfferExportCsvButton } from '@/components/OfferExportCsvButton';
 
 import { ArrowLeft, Save, Plus, Trash2, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 
@@ -237,20 +238,28 @@ function OfferDetailPage() {
         >
           <a href={`/shop/${shopId}/offers/${offerId}/profitability`}>View Profitability</a>
         </Button>
-        <Button
-          variant="secondary"
-          asChild
-          disabled={!hasManifestProducts}
-          className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
-        >
-          <a href={`/shop/${shopId}/offers/${offerId}/metafields`}>View Metafields</a>
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={handleForceReload}
-          disabled={reloading}
-        >
-          {reloading ? (
+                  <Button
+                    variant="secondary"
+                    asChild
+                    disabled={!hasManifestProducts}
+                    className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
+                  >
+                    <a href={`/shop/${shopId}/offers/${offerId}/metafields`}>View Metafields</a>
+                  </Button>
+                  {hasManifestProducts && (
+                    <OfferExportCsvButton
+                      shopId={shopId!}
+                      offerId={offerId!}
+                      manifestGroups={offer.manifestGroups}
+                      manifestProductData={offer.manifestProductData}
+                      shopifyProducts={shopifyProducts}
+                    />
+                  )}
+                  <Button
+                    variant="secondary"
+                    onClick={handleForceReload}
+                    disabled={reloading}
+                  >          {reloading ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
           ) : (
             <RefreshCw className="w-4 h-4 mr-2" />
