@@ -276,6 +276,106 @@ pnpm test       # Jest
 pnpm build
 ```
 
+## PHP Testing Guidelines
+
+### Database Safety
+
+**CRITICAL**: Tests MUST use SQLite, never MySQL. This is enforced at multiple levels:
+- `phpunit.xml` sets `DB_CONNECTION=sqlite`
+- `.env.testing` provides backup configuration  
+- `TestCase.php` throws an exception if MySQL is detected
+
+### Test Base Classes
+
+#### `Tests\TestCase` - For non-database tests
+Use for unit tests or feature tests that don't need database access.
+
+```php
+namespace Tests\Feature;
+
+use Tests\TestCase;
+
+class MyTest extends TestCase
+{
+    public function test_something(): void
+    {
+        // No database access needed
+        $response = $this->get('/health');
+        $response->assertOk();
+    }
+}
+```
+
+#### `Tests\DatabaseTestCase` - For database tests
+Use for tests that need database access. Includes `RefreshDatabase` trait and helper methods.
+
+```php
+namespace Tests\Feature;
+
+use Tests\DatabaseTestCase;
+
+class MyDatabaseTest extends DatabaseTestCase
+{
+    public function test_user_creation(): void
+    {
+        // Database is set up with SQLite schema
+        $user = $this->createTestUser(isAdmin: true);
+        $shop = $this->createTestShop();
+        $this->grantShopAccess($user, $shop, 'read-write');
+
+        $this->assertDatabaseHas('users', [
+            'email' => $user->email,
+        ]);
+    }
+}
+```
+
+### Helper Methods in DatabaseTestCase
+
+- `createTestUser(bool $isAdmin = false)` - Create a test user
+- `createTestShop(array $attributes = [])` - Create a test Shopify shop
+- `grantShopAccess(User $user, ShopifyShop $shop, string $accessLevel)` - Grant shop access
+
+### Test File Organization
+
+```
+tests/
+├── TestCase.php           # Base class with SQLite safety checks
+├── DatabaseTestCase.php   # Base class for database tests
+├── Traits/
+│   └── RequiresSqlite.php # Reusable SQLite enforcement trait
+├── Feature/               # Feature/integration tests
+│   ├── ExampleTest.php
+│   └── DatabaseExampleTest.php
+└── Unit/                  # Unit tests
+    └── ExampleTest.php
+```
+
+### Database Schema
+
+The SQLite schema is at `database/schema/sqlite-schema.sql`. This is used by `RefreshDatabase` trait.
+
+When adding new migrations for MySQL:
+1. Add the migration for MySQL as usual
+2. Update `database/schema/sqlite-schema.sql` with the SQLite-compatible equivalent
+3. Run tests to verify the schema works
+
+### Running Tests
+
+```bash
+# Run all PHP tests
+composer test
+
+# Run specific test file
+./vendor/bin/phpunit tests/Feature/DatabaseExampleTest.php
+
+# Run specific test method
+./vendor/bin/phpunit --filter test_can_create_user
+
+# Run with verbose output
+./vendor/bin/phpunit -v
+```
+
 ## When Extending
 
 1. **New pages**: Add blade template, TSX entry point, Vite input, web route
@@ -284,3 +384,5 @@ pnpm build
 4. **Keep** `credentials: include` in fetches for session + CSRF
 5. **Use** shadcn components, not react-bootstrap
 6. **Follow** first-or-create patterns for per-entity resources
+7. **Write tests**: Extend `DatabaseTestCase` for tests needing database, `TestCase` otherwise
+8. **Update SQLite schema**: When adding MySQL migrations, also update `database/schema/sqlite-schema.sql`

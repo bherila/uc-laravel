@@ -85,8 +85,63 @@ pnpm run dev         # Vite dev server
 # PHP tests
 composer test
 
+# Run specific test file
+./vendor/bin/phpunit tests/Feature/DatabaseExampleTest.php
+
+# Run with coverage
+./vendor/bin/phpunit --coverage-html coverage
+
 # TypeScript/Jest tests
 pnpm test
+```
+
+#### Database Testing Safety
+
+PHP tests are configured to **always use SQLite** instead of MySQL. This is critical because:
+
+1. The `.env` file may contain MySQL credentials for the production database
+2. Using `RefreshDatabase` on MySQL would destroy real data
+3. Tests should be isolated and repeatable
+
+Safety is enforced at multiple levels:
+- `phpunit.xml` sets `DB_CONNECTION=sqlite` and `DB_DATABASE=:memory:`
+- `.env.testing` provides backup configuration
+- `TestCase.php` throws an exception if MySQL is detected
+- `DatabaseTestCase` provides a safe base class for database tests
+
+#### Writing Database Tests
+
+For tests that need database access, extend `DatabaseTestCase`:
+
+```php
+use Tests\DatabaseTestCase;
+
+class MyTest extends DatabaseTestCase
+{
+    public function test_something(): void
+    {
+        // Database is automatically set up with SQLite schema
+        $user = $this->createTestUser();
+        $shop = $this->createTestShop();
+        $this->grantShopAccess($user, $shop, 'read-write');
+        
+        // Your test logic here
+    }
+}
+```
+
+For tests that don't need the database, extend `TestCase`:
+
+```php
+use Tests\TestCase;
+
+class MyUnitTest extends TestCase
+{
+    public function test_something(): void
+    {
+        // No database access
+    }
+}
 ```
 
 ## Project Structure
