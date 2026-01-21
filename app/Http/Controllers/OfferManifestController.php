@@ -11,17 +11,34 @@ use Illuminate\Http\Request;
 
 class OfferManifestController extends Controller
 {
-    public function __construct(
-        private OfferManifestService $manifestService,
-        private ShopifyProductService $productService
-    ) {}
+    /**
+     * Get the shop from the request (set by shop.access middleware).
+     */
+    private function getShop(Request $request): \App\Models\ShopifyShop
+    {
+        return $request->attributes->get('shop');
+    }
+
+    /**
+     * Create services configured for the current shop.
+     */
+    private function makeServices(Request $request): array
+    {
+        $shop = $this->getShop($request);
+        $client = new \App\Services\Shopify\ShopifyClient($shop);
+        $productService = new \App\Services\Shopify\ShopifyProductService($client);
+        $manifestService = new \App\Services\Offer\OfferManifestService($productService);
+
+        return [$manifestService, $productService];
+    }
 
     /**
      * Get manifest summary for an offer
      */
-    public function index(int $offer): JsonResponse
+    public function index(Request $request, int $offer): JsonResponse
     {
-        $summary = $this->manifestService->getManifestSummary($offer);
+        [$manifestService] = $this->makeServices($request);
+        $summary = $manifestService->getManifestSummary($offer);
         return response()->json($summary);
     }
 
@@ -30,6 +47,7 @@ class OfferManifestController extends Controller
      */
     public function update(Request $request, int $offer): JsonResponse
     {
+        [$manifestService] = $this->makeServices($request);
         $payloadKey = $request->has('manifests') ? 'manifests' : 'sku_qty';
 
         $validated = $request->validate([
@@ -39,7 +57,7 @@ class OfferManifestController extends Controller
         ]);
 
         try {
-            $this->manifestService->putSkuQty($offer, $validated[$payloadKey]);
+            $manifestService->putSkuQty($offer, $validated[$payloadKey]);
             return response()->json(['message' => 'Manifest quantities updated']);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 422);
@@ -51,6 +69,8 @@ class OfferManifestController extends Controller
      */
     public function import(Request $request, int $shop, int $offer): JsonResponse
     {
+        [$manifestService, $productService] = $this->makeServices($request);
+        
         $validated = $request->validate([
             'items' => 'required|array',
             'items.*.sku' => 'required|string',
@@ -72,7 +92,7 @@ class OfferManifestController extends Controller
             }
 
             // Resolve SKU to Variant ID
-            $variantId = $this->productService->getVariantIdBySku($sku);
+            $variantId = $productService->getVariantIdBySku($sku);
             if ($variantId) {
                 $resolvedManifests[] = ['sku' => $variantId, 'qty' => $qty];
             } else {
@@ -88,7 +108,7 @@ class OfferManifestController extends Controller
         }
 
         try {
-            $this->manifestService->putSkuQty($offer, $resolvedManifests);
+            $manifestService->putSkuQty($offer, $resolvedManifests);
             return response()->json(['message' => 'Successfully imported ' . count($resolvedManifests) . ' products']);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 422);
@@ -100,6 +120,8 @@ class OfferManifestController extends Controller
      */
     public function validate(Request $request, int $shop, int $offer): JsonResponse
     {
+        [, $productService] = $this->makeServices($request);
+
         $validated = $request->validate([
             'skus' => 'required|array',
             'skus.*' => 'required|string',
@@ -115,11 +137,11 @@ class OfferManifestController extends Controller
             if (str_starts_with($sku, 'gid://shopify/ProductVariant/')) {
                 $variantId = $sku;
             } else {
-                $variantId = $this->productService->getVariantIdBySku($sku);
+                $variantId = $productService->getVariantIdBySku($sku);
             }
 
             if ($variantId) {
-                $productData = $this->productService->getProductDataByVariantId($variantId);
+                $productData = $productService->getProductDataByVariantId($variantId);
                 $results[$sku] = [
                     'valid' => true,
                     'variantId' => $variantId,
