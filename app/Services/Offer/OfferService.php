@@ -63,6 +63,7 @@ class OfferService
                 'offerProductData' => $productData ? [
                     ...$productData,
                     'variantId' => $offer->offer_variant_id,
+                    'sku' => $productData['sku'] ?? null,
                 ] : null,
             ];
         });

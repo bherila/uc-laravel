@@ -17,6 +17,7 @@ class ShopifyProductService
             nodes(ids: $IDs) {
                 ... on ProductVariant {
                     id
+                    sku
                     inventoryQuantity
                     inventoryItem {
                         id
@@ -280,6 +281,7 @@ class ShopifyProductService
                         'variantId' => $variantId,
                         'productId' => $product['id'] ?? null,
                         'title' => $product['title'] ?? null,
+                        'sku' => $node['sku'] ?? null,
                         'inventoryQuantity' => $node['inventoryQuantity'] ?? 0,
                         'inventoryItem' => $node['inventoryItem'],
                         'priceRange' => $product['priceRangeV2'] ?? null,

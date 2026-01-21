@@ -30,6 +30,7 @@ interface ProductData {
   variantId?: string;
   productId?: string;
   title?: string;
+  sku?: string;
   inventoryQuantity?: number;
   priceRange?: {
     maxVariantPrice?: { amount: string };
@@ -298,6 +299,7 @@ function OfferDetailPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Product</TableHead>
+              <TableHead>SKU</TableHead>
               <TableHead>Value</TableHead>
               <TableHead># Offered</TableHead>
               {offer.hasOrders && <TableHead># Allocated</TableHead>}
@@ -338,6 +340,9 @@ function OfferDetailPage() {
                           </Badge>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {product?.sku ?? '-'}
                     </TableCell>
                     <TableCell>
                       {maxPrice ? formatCurrency(parseFloat(maxPrice)) : 'null'}

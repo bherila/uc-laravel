@@ -33,6 +33,7 @@ interface OfferProductData {
   variantId: string;
   productId?: string;
   title?: string;
+  sku?: string;
   inventoryQuantity?: number;
   startDate?: string;
   endDate?: string;
@@ -315,7 +316,14 @@ function OfferListPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm">{getProductName(offer)}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{getProductName(offer)}</span>
+                          {offer.offerProductData?.sku && (
+                            <Badge variant="outline" className="text-[10px] font-mono py-0 px-1">
+                              {offer.offerProductData.sku}
+                            </Badge>
+                          )}
+                        </div>
                         {offer.offerProductData?.variantId && (
                           <VariantLink
                             variantId={offer.offerProductData.variantId}
