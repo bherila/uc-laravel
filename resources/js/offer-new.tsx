@@ -20,12 +20,10 @@ interface ShopifyProduct {
 
 function ProductSelector({
   options,
-  disabledOptions,
   selectedValue,
   onSelect,
 }: {
   options: ShopifyProduct[];
-  disabledOptions: string[];
   selectedValue: ShopifyProduct | null;
   onSelect: (product: ShopifyProduct | null) => void;
 }) {
@@ -40,20 +38,12 @@ function ProductSelector({
     });
   }, [searchText, options]);
 
-  // Sort: enabled first, then disabled
-  const sortedOptions = useMemo(() => {
-    return [
-      ...filteredOptions.filter((option) => !disabledOptions.includes(option.variantId)),
-      ...filteredOptions.filter((option) => disabledOptions.includes(option.variantId)),
-    ];
-  }, [filteredOptions, disabledOptions]);
-
   useEffect(() => {
-    const firstOption = sortedOptions[0];
-    if (firstOption && sortedOptions.length === 1 && !disabledOptions.includes(firstOption.variantId)) {
+    const firstOption = filteredOptions[0];
+    if (firstOption && filteredOptions.length === 1) {
       onSelect(firstOption);
     }
-  }, [sortedOptions, disabledOptions, onSelect]);
+  }, [filteredOptions, onSelect]);
 
   return (
     <div className="space-y-2">
@@ -71,18 +61,17 @@ function ProductSelector({
           onSelect(val ? JSON.parse(val) : null);
         }}
       >
-        {sortedOptions.length !== 1 && (
-          <option value="">({sortedOptions.length} options)</option>
+        {filteredOptions.length !== 1 && (
+          <option value="">({filteredOptions.length} options)</option>
         )}
-        {sortedOptions.map((option) => (
+        {filteredOptions.map((option) => (
           <option
             key={option.productId + '|' + option.variantId}
             value={JSON.stringify(option)}
-            disabled={disabledOptions.includes(option.variantId)}
           >
             {option.productName} - {option.variantName}
-            {disabledOptions.includes(option.variantId) ? ' (Already in use)' : ''}
-            {sortedOptions.length === 1 && !disabledOptions.includes(option.variantId) ? ' ✅' : ''}
+            {' '}(SKU: {option.variantSku})
+            {filteredOptions.length === 1 ? ' ✅' : ''}
           </option>
         ))}
       </select>
@@ -92,7 +81,6 @@ function ProductSelector({
 
 function NewOfferPage() {
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
-  const [existingVariantIds, setExistingVariantIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,12 +99,17 @@ function NewOfferPage() {
           fetchWrapper.get(`${apiBase}/shops/${shopId}/shopify/products?type=deal`),
           fetchWrapper.get(`${apiBase}/shops/${shopId}/offers`),
         ]);
-        setProducts(productsData);
-        setExistingVariantIds(
-          (offersData.data || [])
-            .map((offer: any) => offer.offerProductData?.variantId)
-            .filter(Boolean)
+
+        const existingVariantIds = (offersData.data || [])
+          .map((offer: any) => offer.offerProductData?.variantId)
+          .filter(Boolean);
+
+        // Remove products that already have an offer
+        const availableProducts = productsData.filter(
+          (p: ShopifyProduct) => !existingVariantIds.includes(p.variantId)
         );
+
+        setProducts(availableProducts);
       } catch (err) {
         console.error('Failed to load data:', err);
         setError('Failed to load product data');
@@ -189,7 +182,6 @@ function NewOfferPage() {
           </Label>
           <ProductSelector
             options={products}
-            disabledOptions={existingVariantIds}
             selectedValue={selectedProduct}
             onSelect={setSelectedProduct}
           />
