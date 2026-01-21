@@ -114,7 +114,7 @@ function NewOfferPage() {
         ]);
         setProducts(productsData);
         setExistingVariantIds(
-          offersData
+          (offersData.data || [])
             .map((offer: any) => offer.offerProductData?.variantId)
             .filter(Boolean)
         );
