@@ -325,20 +325,39 @@ class OfferService
         $productId = $offerDetail['offerProductData']['productId'];
         $manifestProductData = $offerDetail['manifestProductData'];
 
-        // Build offerV3 - the raw manifest product data
-        $offerV3 = json_encode($manifestProductData, JSON_PRETTY_PRINT);
+        // Calculate total quantity for percentage
+        $totalQty = array_sum(array_column($manifestProductData, 'qty'));
+
+        // Transform data to match required structure
+        $transformedData = [];
+        foreach ($manifestProductData as $variantId => $data) {
+            $transformedData[$variantId] = [
+                'featuredImageUrl' => $data['featuredImage'] ?? null,
+                'maxVariantPriceAmount' => $data['priceRange']['maxVariantPrice']['amount'] ?? '0.0',
+                'productId' => $data['productId'] ?? null,
+                'qty' => $data['qty'] ?? 0,
+                'variantInventoryQuantity' => $data['inventoryQuantity'] ?? 0,
+                'percentChance' => $totalQty > 0 ? (($data['qty'] ?? 0) / $totalQty) * 100 : 0,
+                'title' => $data['title'] ?? '',
+                'weight' => $data['inventoryItem']['measurement']['weight']['value'] ?? 0,
+                'unitCost' => $data['inventoryItem']['unitCost'] ?? null,
+            ];
+        }
+
+        // Build offerV3 - the transformed map
+        $offerV3 = json_encode($transformedData, JSON_PRETTY_PRINT);
 
         // Build offerV3Array - sorted items with maxPrice
-        $items = array_values($manifestProductData);
+        $items = array_values($transformedData);
         usort($items, function ($a, $b) {
-            $priceA = (float) ($a['priceRange']['maxVariantPrice']['amount'] ?? 0);
-            $priceB = (float) ($b['priceRange']['maxVariantPrice']['amount'] ?? 0);
+            $priceA = (float) ($a['maxVariantPriceAmount'] ?? 0);
+            $priceB = (float) ($b['maxVariantPriceAmount'] ?? 0);
             return $priceA <=> $priceB;
         });
 
         $maxPrice = 0;
-        foreach ($manifestProductData as $data) {
-            $price = (float) ($data['priceRange']['maxVariantPrice']['amount'] ?? 0);
+        foreach ($items as $item) {
+            $price = (float) ($item['maxVariantPriceAmount'] ?? 0);
             if ($price > $maxPrice) {
                 $maxPrice = $price;
             }
