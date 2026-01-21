@@ -268,8 +268,7 @@ function OfferListPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[60px]">ID</TableHead>
-              <TableHead>Offer Name</TableHead>
-              <TableHead>Deal SKU</TableHead>
+              <TableHead>Deal Product / SKU</TableHead>
               <TableHead>Date from Metafield</TableHead>
               <TableHead className="text-center"># Offered</TableHead>
               <TableHead className="text-center"># Allocated</TableHead>
@@ -283,7 +282,6 @@ function OfferListPage() {
                     <TableCell><Skeleton className="h-4 w-8" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     {canWrite && <TableCell><Skeleton className="h-4 w-20" /></TableCell>}
@@ -291,7 +289,7 @@ function OfferListPage() {
               ))
             ) : !data || data.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canWrite ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={canWrite ? 6 : 5} className="text-center py-8 text-muted-foreground">
                   {status === 'active' ? 'No offers found. Create one to get started.' : 'No archived offers found.'}
                 </TableCell>
               </TableRow>
@@ -307,17 +305,14 @@ function OfferListPage() {
                   <TableRow key={offer.offer_id} className={loading ? 'opacity-50' : ''}>
                     <TableCell className="font-mono text-sm">{offer.offer_id}</TableCell>
                     <TableCell>
-                      <a 
-                        href={`/shop/${shopId}/offers/${offer.offer_id}`}
-                        className="hover:underline font-medium"
-                      >
-                        {offer.offer_name}
-                      </a>
-                    </TableCell>
-                    <TableCell>
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{getProductName(offer)}</span>
+                          <a 
+                            href={`/shop/${shopId}/offers/${offer.offer_id}`}
+                            className="text-sm font-medium hover:underline"
+                          >
+                            {getProductName(offer)}
+                          </a>
                           {offer.offerProductData?.sku && (
                             <Badge variant="outline" className="text-[10px] font-mono py-0 px-1">
                               {offer.offerProductData.sku}

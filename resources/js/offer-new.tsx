@@ -97,7 +97,6 @@ function NewOfferPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [offerName, setOfferName] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
 
   const rootEl = document.getElementById('offer-new-root');
@@ -130,12 +129,12 @@ function NewOfferPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProduct || !offerName.trim()) return;
+    if (!selectedProduct) return;
 
     setSubmitting(true);
     try {
       await fetchWrapper.post(`${apiBase}/shops/${shopId}/offers`, {
-        offer_name: offerName.trim(),
+        offer_name: selectedProduct.productName,
         offer_variant_id: selectedProduct.variantId,
         offer_product_name: selectedProduct.productName,
       });
@@ -147,7 +146,7 @@ function NewOfferPage() {
     }
   };
 
-  const isValid = offerName.trim().length > 0 && selectedProduct !== null;
+  const isValid = selectedProduct !== null;
 
   if (loading) {
     return (
@@ -155,10 +154,6 @@ function NewOfferPage() {
         <div className="space-y-6">
           <Skeleton className="h-12 w-1/3 mt-5 mb-3" />
           <div className="max-w-2xl space-y-6">
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-10 w-full" />
-            </div>
             <div className="space-y-2">
               <Skeleton className="h-4 w-32" />
               <div className="space-y-2">
@@ -187,21 +182,6 @@ function NewOfferPage() {
       )}
 
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="offerName">
-            Offer Name
-            {!offerName.trim() && <span className="text-destructive ml-1">*</span>}
-          </Label>
-          <Input
-            id="offerName"
-            type="text"
-            value={offerName}
-            onChange={(e) => setOfferName(e.target.value)}
-            placeholder="e.g. January 2024 Wine Club"
-            required
-          />
-        </div>
-
         <div className="space-y-2">
           <Label>
             Deal Product/Variant
