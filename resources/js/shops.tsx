@@ -18,7 +18,7 @@ interface Shop {
   name: string;
   shop_domain: string;
   is_active: boolean;
-  api_version: string;
+  api_version?: string;
   offers_count: number;
   users_count: number | null;
   access_level: 'read-only' | 'read-write';

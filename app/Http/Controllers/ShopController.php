@@ -68,7 +68,6 @@ class ShopController extends Controller
                         'name' => $shop->name,
                         'shop_domain' => $shop->shop_domain,
                         'is_active' => true,
-                        'api_version' => $shop->api_version, // Note: might need to ensure this is selected
                         'offers_count' => $shop->offers_count,
                         'users_count' => null,
                         'access_level' => $shop->pivot->access_level,
