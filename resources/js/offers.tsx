@@ -44,6 +44,7 @@ interface OfferProductData {
 interface Offer {
   offer_id: number;
   offer_name: string;
+  offer_product_name: string;
   shop_id: number;
   shop?: {
     id: number;
@@ -177,7 +178,7 @@ function OfferListPage() {
   };
 
   const getProductName = (offer: Offer): string => {
-    return offer.offerProductData?.title || '-';
+    return offer.offerProductData?.title || offer.offer_product_name || offer.offer_name || '-';
   };
 
   const shopName = data?.data[0]?.shop?.name || 'Loading...';

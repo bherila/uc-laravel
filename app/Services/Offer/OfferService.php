@@ -45,7 +45,7 @@ class OfferService
             $query->where('is_archived', false);
         }
         
-        $paginatedOffers = $query->paginate($perPage, ['offer_id', 'offer_name', 'offer_variant_id', 'shop_id', 'is_archived']);
+        $paginatedOffers = $query->paginate($perPage, ['offer_id', 'offer_name', 'offer_variant_id', 'offer_product_name', 'shop_id', 'is_archived']);
 
         $variantIds = collect($paginatedOffers->items())->pluck('offer_variant_id')->toArray();
         $offerProductData = $this->shopifyProductService->getProductDataByVariantIds($variantIds);
@@ -55,6 +55,7 @@ class OfferService
             return [
                 'offer_id' => $offer->offer_id,
                 'offer_name' => $offer->offer_name,
+                'offer_product_name' => $offer->offer_product_name,
                 'shop_id' => $offer->shop_id,
                 'shop' => $offer->shop,
                 'is_archived' => $offer->is_archived,
