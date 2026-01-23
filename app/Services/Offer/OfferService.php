@@ -346,7 +346,8 @@ class OfferService
         }
 
         // Build offerV3 - the transformed map
-        $offerV3 = json_encode($transformedData, JSON_PRETTY_PRINT);
+        // We cast to object to ensure empty maps are {} instead of [] in JSON
+        $offerV3 = json_encode((object)$transformedData, JSON_PRETTY_PRINT);
 
         // Build offerV3Array - sorted items with maxPrice
         $items = array_values($transformedData);
@@ -369,9 +370,11 @@ class OfferService
             'maxPrice' => $maxPrice > 0 ? $maxPrice : null,
         ]);
 
-        // Write metafields to Shopify
-        $this->shopifyProductService->writeProductMetafield($productId, 'offer_v3', $offerV3);
-        $this->shopifyProductService->writeProductMetafield($productId, 'offer_v3_array', $offerV3Array);
+        // Write metafields to Shopify in a single call
+        $this->shopifyProductService->writeProductMetafields($productId, [
+            'offer_v3' => $offerV3,
+            'offer_v3_array' => $offerV3Array,
+        ]);
 
         return [
             'offerV3' => $offerV3,
