@@ -159,7 +159,12 @@ class OfferController extends Controller
     {
         try {
             $offerService = $this->makeOfferService($request);
-            $metafields = $offerService->updateOfferMetafields($offer);
+            
+            if ($request->query('push') === 'true') {
+                $metafields = $offerService->updateOfferMetafields($offer);
+            } else {
+                $metafields = $offerService->generateOfferMetafields($offer);
+            }
 
             if (!$metafields) {
                 return response()->json(['error' => 'Offer not found or missing product data'], 404);

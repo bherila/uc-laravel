@@ -31,7 +31,7 @@ function MetafieldsPage() {
     setPushing(true);
     setError(null);
     try {
-      const metafieldsData = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}/metafields`);
+      const metafieldsData = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}/metafields?push=true`);
       setMetafields(metafieldsData);
     } catch (err: any) {
       console.error('Failed to push metafields:', err);
@@ -44,7 +44,7 @@ function MetafieldsPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load offer details and update metafields
+        // Load offer details and preview metafields (not pushing to Shopify)
         const [offerData, metafieldsData] = await Promise.all([
           fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}`),
           fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}/metafields`),

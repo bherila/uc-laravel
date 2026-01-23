@@ -31,6 +31,50 @@ class OfferServiceTest extends TestCase
         );
     }
 
+    public function test_generate_offer_metafields_returns_correct_data_without_writing()
+    {
+        // 1. Setup Data
+        $offer = Offer::create([
+            'offer_name' => 'Test Offer',
+            'offer_variant_id' => 'gid://shopify/ProductVariant/DEAL123',
+            'offer_product_name' => 'Deal Product',
+        ]);
+
+        $itemVariant1 = 'gid://shopify/ProductVariant/ITEM1';
+        OfferManifest::create(['offer_id' => $offer->offer_id, 'mf_variant' => $itemVariant1, 'assignment_ordering' => 1]);
+
+        // 2. Mock Shopify Responses
+        $this->shopifyProductService->shouldReceive('getProductDataByVariantId')
+            ->andReturn(['productId' => 'gid://shopify/Product/DEAL_PROD_ID', 'inventoryQuantity' => 10, 'inventoryItem' => []]);
+
+        $this->shopifyProductService->shouldReceive('getProductDataByVariantIds')
+            ->andReturn([
+                $itemVariant1 => [
+                    'variantId' => $itemVariant1,
+                    'productId' => 'gid://shopify/Product/PROD1',
+                    'title' => 'Product 1',
+                    'inventoryQuantity' => 100,
+                    'priceRange' => ['maxVariantPrice' => ['amount' => '50.0', 'currencyCode' => 'USD']],
+                    'inventoryItem' => [
+                        'measurement' => ['weight' => ['value' => 1.5, 'unit' => 'kg']],
+                        'unitCost' => ['amount' => '20.0', 'currencyCode' => 'USD']
+                    ],
+                ],
+            ]);
+
+        // 3. Expect NO Write Call
+        $this->shopifyProductService->shouldNotReceive('writeProductMetafields');
+
+        // 4. Run Code
+        $result = $this->offerService->generateOfferMetafields($offer->offer_id);
+
+        // 5. Verify Result
+        $this->assertArrayHasKey('offerV3', $result);
+        $this->assertArrayHasKey('offerV3Array', $result);
+        $this->assertArrayHasKey('productId', $result);
+        $this->assertEquals('gid://shopify/Product/DEAL_PROD_ID', $result['productId']);
+    }
+
     public function test_update_offer_metafields_generates_correct_structure()
     {
         // 1. Setup Data

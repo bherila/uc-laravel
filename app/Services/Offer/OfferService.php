@@ -310,12 +310,12 @@ class OfferService
     }
 
     /**
-     * Update offer metafields in Shopify
+     * Generate offer metafields data without writing to Shopify
      *
      * @param int $offerId
      * @return array|null
      */
-    public function updateOfferMetafields(int $offerId): ?array
+    public function generateOfferMetafields(int $offerId): ?array
     {
         $offerDetail = $this->getOfferDetail($offerId);
 
@@ -323,7 +323,6 @@ class OfferService
             return null;
         }
 
-        $productId = $offerDetail['offerProductData']['productId'];
         $manifestProductData = $offerDetail['manifestProductData'];
 
         // Calculate total quantity for percentage
@@ -369,6 +368,31 @@ class OfferService
             'items' => $items,
             'maxPrice' => $maxPrice > 0 ? $maxPrice : null,
         ]);
+
+        return [
+            'offerV3' => $offerV3,
+            'offerV3Array' => $offerV3Array,
+            'productId' => $offerDetail['offerProductData']['productId'],
+        ];
+    }
+
+    /**
+     * Update offer metafields in Shopify
+     *
+     * @param int $offerId
+     * @return array|null
+     */
+    public function updateOfferMetafields(int $offerId): ?array
+    {
+        $data = $this->generateOfferMetafields($offerId);
+
+        if (!$data) {
+            return null;
+        }
+
+        $productId = $data['productId'];
+        $offerV3 = $data['offerV3'];
+        $offerV3Array = $data['offerV3Array'];
 
         // Write metafields to Shopify in a single call
         $this->shopifyProductService->writeProductMetafields($productId, [
