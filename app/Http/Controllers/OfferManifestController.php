@@ -27,9 +27,11 @@ class OfferManifestController extends Controller
         $shop = $this->getShop($request);
         $client = new \App\Services\Shopify\ShopifyClient($shop);
         $productService = new \App\Services\Shopify\ShopifyProductService($client);
+        $orderService = new \App\Services\Shopify\ShopifyOrderService($client);
         $manifestService = new \App\Services\Offer\OfferManifestService($productService);
+        $offerService = new \App\Services\Offer\OfferService($productService, $orderService);
 
-        return [$manifestService, $productService];
+        return [$manifestService, $productService, $offerService];
     }
 
     /**
@@ -47,7 +49,7 @@ class OfferManifestController extends Controller
      */
     public function update(Request $request, int $offer): JsonResponse
     {
-        [$manifestService] = $this->makeServices($request);
+        [$manifestService, , $offerService] = $this->makeServices($request);
         $payloadKey = $request->has('manifests') ? 'manifests' : 'sku_qty';
 
         $validated = $request->validate([
@@ -58,6 +60,10 @@ class OfferManifestController extends Controller
 
         try {
             $manifestService->putSkuQty($offer, $validated[$payloadKey]);
+            
+            // Sync metafields after manifest update
+            $offerService->updateOfferMetafields($offer);
+            
             return response()->json(['message' => 'Manifest quantities updated']);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 422);
@@ -69,7 +75,7 @@ class OfferManifestController extends Controller
      */
     public function import(Request $request, int $shop, int $offer): JsonResponse
     {
-        [$manifestService, $productService] = $this->makeServices($request);
+        [$manifestService, $productService, $offerService] = $this->makeServices($request);
         
         $validated = $request->validate([
             'items' => 'required|array',
@@ -110,6 +116,10 @@ class OfferManifestController extends Controller
 
         try {
             $manifestService->putSkuQty($offer, $resolvedManifests);
+
+            // Sync metafields after manifest import
+            $offerService->updateOfferMetafields($offer);
+
             return response()->json(['message' => 'Successfully imported ' . count($resolvedManifests) . ' products']);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 422);
