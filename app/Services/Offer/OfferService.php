@@ -338,7 +338,7 @@ class OfferService
                 'productId' => $data['productId'] ?? null,
                 'qty' => $data['qty'] ?? 0,
                 'variantInventoryQuantity' => $data['inventoryQuantity'] ?? 0,
-                'percentChance' => $totalQty > 0 ? (($data['qty'] ?? 0) / $totalQty) * 100 : 0,
+                'percentChance' => $totalQty > 0 ? round((($data['qty'] ?? 0) / $totalQty) * 100, 2) : 0,
                 'title' => $data['title'] ?? '',
                 'weight' => $data['inventoryItem']['measurement']['weight']['value'] ?? 0,
                 'unitCost' => $data['inventoryItem']['unitCost'] ?? null,
@@ -347,7 +347,7 @@ class OfferService
 
         // Build offerV3 - the transformed map
         // We cast to object to ensure empty maps are {} instead of [] in JSON
-        $offerV3 = json_encode((object)$transformedData, JSON_PRETTY_PRINT);
+        $offerV3 = json_encode((object)$transformedData);
 
         // Build offerV3Array - sorted items with maxPrice
         $items = array_values($transformedData);

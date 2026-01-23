@@ -108,8 +108,10 @@ class ShopifyProductService
                     metafields(first: 10) {
                         edges {
                             node {
+                                namespace
                                 key
                                 value
+                                type
                             }
                         }
                     }
@@ -129,8 +131,10 @@ class ShopifyProductService
                     metafields(first: 20) {
                         edges {
                             node {
+                                namespace
                                 key
                                 value
+                                type
                             }
                         }
                     }
@@ -160,8 +164,10 @@ class ShopifyProductService
                     metafields(first: 10) {
                         edges {
                             node {
+                                namespace
                                 key
                                 value
+                                type
                             }
                         }
                     }
@@ -414,7 +420,7 @@ class ShopifyProductService
             return $result['edges'];
         } catch (\Exception $e) {
             $result['error'] = $e->getMessage();
-            $this->logError($e, 'metaFieldsSet', (int)$productId);
+            $this->logError($e, 'metaFieldsSet');
             return [];
         } finally {
             $this->log($result, 'metaFieldsSet');
