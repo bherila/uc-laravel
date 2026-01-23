@@ -26,10 +26,15 @@ class OfferManifestController extends Controller
     {
         $shop = $this->getShop($request);
         $client = new \App\Services\Shopify\ShopifyClient($shop);
-        $productService = new \App\Services\Shopify\ShopifyProductService($client);
-        $orderService = new \App\Services\Shopify\ShopifyOrderService($client);
-        $manifestService = new \App\Services\Offer\OfferManifestService($productService);
-        $offerService = new \App\Services\Offer\OfferService($productService, $orderService);
+        
+        // Register services in the container for this request scope
+        app()->singleton(\App\Services\Shopify\ShopifyClient::class, fn() => $client);
+        app()->singleton(\App\Services\Shopify\ShopifyProductService::class, fn() => new \App\Services\Shopify\ShopifyProductService($client));
+        app()->singleton(\App\Services\Shopify\ShopifyOrderService::class, fn() => new \App\Services\Shopify\ShopifyOrderService($client));
+        
+        $manifestService = app(\App\Services\Offer\OfferManifestService::class);
+        $productService = app(\App\Services\Shopify\ShopifyProductService::class);
+        $offerService = app(\App\Services\Offer\OfferService::class);
 
         return [$manifestService, $productService, $offerService];
     }

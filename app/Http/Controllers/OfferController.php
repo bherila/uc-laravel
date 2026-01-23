@@ -29,9 +29,13 @@ class OfferController extends Controller
     {
         $shop = $this->getShop($request);
         $client = new ShopifyClient($shop);
-        $productService = new ShopifyProductService($client);
-        $orderService = new ShopifyOrderService($client);
-        return new OfferService($productService, $orderService);
+        
+        // Register services in the container for this request scope
+        app()->singleton(ShopifyClient::class, fn() => $client);
+        app()->singleton(ShopifyProductService::class, fn() => new ShopifyProductService($client));
+        app()->singleton(ShopifyOrderService::class, fn() => new ShopifyOrderService($client));
+        
+        return app(OfferService::class);
     }
 
     /**
