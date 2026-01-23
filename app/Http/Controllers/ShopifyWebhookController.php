@@ -22,7 +22,7 @@ class ShopifyWebhookController extends Controller
      */
     public function handle(Request $request): JsonResponse
     {
-        set_time_limit(180); // 3 minutes
+        set_time_limit(120); // 2 minutes
 
         $payload = $request->getContent();
         $headers = json_encode($request->headers->all());
