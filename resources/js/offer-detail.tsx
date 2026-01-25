@@ -15,8 +15,8 @@ import { formatCurrency } from '@/lib/currency';
 import { OfferItemRemoval } from '@/components/OfferItemRemoval';
 import { OfferExportCsvButton } from '@/components/OfferExportCsvButton';
 import { OfferImportCsvButton } from '@/components/OfferImportCsvButton';
-
-import { ArrowLeft, Save, Plus, Trash2, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { ArrowLeft, Save, Plus, Trash2, ExternalLink, RefreshCw, Loader2, List, TrendingUp, Settings } from 'lucide-react';
 
 interface ManifestGroup {
   total: number;
@@ -219,60 +219,84 @@ function OfferDetailPage() {
 
       <div className="flex flex-wrap gap-2 mb-6">
         {canWrite && (
-          <Button asChild>
-            <a href={`/shop/${shopId}/offers/${offerId}/add-manifest`}>Add Bottles to Offer</a>
-          </Button>
+          <ButtonGroup>
+            <Button asChild>
+              <a href={`/shop/${shopId}/offers/${offerId}/add-manifest`}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Bottles to Offer
+              </a>
+            </Button>
+          </ButtonGroup>
         )}
-        <Button
-          variant="secondary"
-          asChild
-          disabled={!offer.hasOrders}
-          className={!offer.hasOrders ? 'opacity-50 pointer-events-none' : ''}
-        >
-          <a href={`/shop/${shopId}/offers/${offerId}/shopify_manifests`}>View order manifests</a>
-        </Button>
-        <Button
-          variant="secondary"
-          asChild
-          disabled={!hasManifestProducts}
-          className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
-        >
-          <a href={`/shop/${shopId}/offers/${offerId}/profitability`}>View Profitability</a>
-        </Button>
-                  <Button
-                    variant="secondary"
-                    asChild
-                    disabled={!hasManifestProducts}
-                    className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
-                  >
-                    <a href={`/shop/${shopId}/offers/${offerId}/metafields`}>View Metafields</a>
-                  </Button>
-                            {hasManifestProducts && (
-                              <OfferExportCsvButton
-                                shopId={shopId!}
-                                offerId={offerId!}
-                                manifestGroups={offer.manifestGroups}
-                                manifestProductData={offer.manifestProductData}
-                                shopifyProducts={shopifyProducts}
-                              />
-                            )}
-                            {canWrite && (
-                              <OfferImportCsvButton
-                                shopId={shopId!}
-                                offerId={offerId!}
-                                onImportSuccess={fetchOffer}
-                              />
-                            )}
-                            <Button                    variant="secondary"
-                    onClick={handleForceReload}
-                    disabled={reloading}
-                  >          {reloading ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4 mr-2" />
-          )}
-          Force-Reload Shopify Data
-        </Button>
+        <ButtonGroup>
+          <Button
+            variant="secondary"
+            asChild
+            disabled={!offer.hasOrders}
+            className={!offer.hasOrders ? 'opacity-50 pointer-events-none' : ''}
+          >
+            <a href={`/shop/${shopId}/offers/${offerId}/shopify_manifests`}>
+              <List className="w-4 h-4 mr-2" />
+              View order manifests
+            </a>
+          </Button>
+          <Button
+            variant="secondary"
+            asChild
+            disabled={!hasManifestProducts}
+            className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
+          >
+            <a href={`/shop/${shopId}/offers/${offerId}/profitability`}>
+              <TrendingUp className="w-4 h-4 mr-2" />
+              View Profitability
+            </a>
+          </Button>
+          <Button
+            variant="secondary"
+            asChild
+            disabled={!hasManifestProducts}
+            className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
+          >
+            <a href={`/shop/${shopId}/offers/${offerId}/metafields`}>
+              <Settings className="w-4 h-4 mr-2" />
+              View Metafields
+            </a>
+          </Button>
+        </ButtonGroup>
+        {(hasManifestProducts || canWrite) && (
+          <ButtonGroup>
+            {hasManifestProducts && (
+              <OfferExportCsvButton
+                shopId={shopId!}
+                offerId={offerId!}
+                manifestGroups={offer.manifestGroups}
+                manifestProductData={offer.manifestProductData}
+                shopifyProducts={shopifyProducts}
+              />
+            )}
+            {canWrite && (
+              <OfferImportCsvButton
+                shopId={shopId!}
+                offerId={offerId!}
+                onImportSuccess={fetchOffer}
+              />
+            )}
+          </ButtonGroup>
+        )}
+        <ButtonGroup>
+          <Button
+            variant="secondary"
+            onClick={handleForceReload}
+            disabled={reloading}
+          >
+            {reloading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Force-Reload Shopify Data
+          </Button>
+        </ButtonGroup>
       </div>
 
       {!offer.hasOrders && (
