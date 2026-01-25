@@ -16,7 +16,8 @@ class OfferService
     public function __construct(
         private ShopifyProductService $shopifyProductService,
         private ShopifyOrderService $shopifyOrderService
-    ) {}
+    ) {
+    }
 
     /**
      * Load all offers with their Shopify product data (paginated)
@@ -30,11 +31,13 @@ class OfferService
     {
         $query = Offer::with('shop:id,name,shop_domain')
             ->withCount('manifests')
-            ->withCount(['manifests as allocated_manifests_count' => function ($q) {
-                $q->whereNotNull('assignee_id');
-            }])
+            ->withCount([
+                'manifests as allocated_manifests_count' => function ($q) {
+                    $q->whereNotNull('assignee_id');
+                }
+            ])
             ->orderBy('offer_id', 'desc');
-        
+
         if ($shopId !== null) {
             $query->where('shop_id', $shopId);
         }
@@ -44,7 +47,7 @@ class OfferService
         } else {
             $query->where('is_archived', false);
         }
-        
+
         $paginatedOffers = $query->paginate($perPage, ['offer_id', 'offer_name', 'offer_variant_id', 'offer_product_name', 'shop_id', 'is_archived']);
 
         $variantIds = collect($paginatedOffers->items())->pluck('offer_variant_id')->toArray();
@@ -85,7 +88,7 @@ class OfferService
         if ($isArchived) {
             $offer = Offer::findOrFail($offerId);
             $productData = $this->shopifyProductService->getProductDataByVariantId($offer->offer_variant_id);
-            
+
             $endDate = $productData['endDate'] ?? null;
             if (!$endDate || new \DateTime($endDate) > new \DateTime()) {
                 throw new \RuntimeException('Only ended offers can be archived');
@@ -119,8 +122,9 @@ class OfferService
         return $offers->filter(function ($offer) use ($offerProductData, $thirtyDaysAgo) {
             $productData = $offerProductData[$offer->offer_variant_id] ?? null;
             $endDate = $productData['endDate'] ?? null;
-            if (!$endDate) return false;
-            
+            if (!$endDate)
+                return false;
+
             try {
                 return new \DateTime($endDate) < $thirtyDaysAgo;
             } catch (\Exception $e) {
@@ -346,7 +350,7 @@ class OfferService
 
         // Build offerV3 - the transformed map
         // We cast to object to ensure empty maps are {} instead of [] in JSON
-        $offerV3 = json_encode((object)$transformedData);
+        $offerV3 = json_encode((object) $transformedData);
 
         // Build offerV3Array - sorted items with maxPrice
         $items = array_values($transformedData);
@@ -555,7 +559,7 @@ class OfferService
     public function forceReload(int $offerId): void
     {
         $offer = Offer::findOrFail($offerId);
-        
+
         // 1. Clear deal SKU variant cache
         $this->shopifyProductService->clearVariantCaches($offer->offer_variant_id);
 
@@ -567,5 +571,8 @@ class OfferService
         foreach ($manifestVariants as $variantId) {
             $this->shopifyProductService->clearVariantCaches($variantId);
         }
+
+        // 3. Ensure general product lists are cleared (in case offer has no manifests yet)
+        $this->shopifyProductService->clearProductCaches($offer->offer_variant_id);
     }
 }

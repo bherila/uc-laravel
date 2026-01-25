@@ -406,7 +406,7 @@ class ShopifyProductService
             ];
 
             $response = $this->client->graphql(self::GQL_WRITE_PRODUCT_METAFIELDS, $result['vars']);
-            
+
             if (!empty($response['productUpdate']['userErrors'])) {
                 $result['errors'] = $response['productUpdate']['userErrors'];
                 throw new \RuntimeException('Shopify user errors: ' . json_encode($result['errors']));
@@ -542,27 +542,31 @@ class ShopifyProductService
     public function getVariantIdBySku(string $sku): ?string
     {
         $cacheKey = 'shopify_variant_id_by_sku_' . md5($sku);
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return $cached;
+        }
 
-        return Cache::remember($cacheKey, 3600, function () use ($sku) {
-            // Sanitize SKU for search
-            $safeSku = str_replace(['"', "'", '\\'], '', $sku);
-            $filter = "sku:{$safeSku}";
+        // Sanitize SKU for search
+        $safeSku = str_replace(['"', "'", '\\'], '', $sku);
+        $filter = "sku:{$safeSku}";
 
-            $response = $this->client->graphql(self::GQL_LOAD_PRODUCTS, [
-                'cursor' => null,
-                'filter' => $filter,
-            ]);
+        $response = $this->client->graphql(self::GQL_LOAD_PRODUCTS, [
+            'cursor' => null,
+            'filter' => $filter,
+        ]);
 
-            foreach ($response['products']['edges'] ?? [] as $productEdge) {
-                foreach ($productEdge['node']['variants']['nodes'] ?? [] as $variant) {
-                    if (strtolower($variant['sku'] ?? '') === strtolower($sku)) {
-                        return $variant['id'];
-                    }
+        foreach ($response['products']['edges'] ?? [] as $productEdge) {
+            foreach ($productEdge['node']['variants']['nodes'] ?? [] as $variant) {
+                if (strtolower($variant['sku'] ?? '') === strtolower($sku)) {
+                    $variantId = $variant['id'];
+                    Cache::put($cacheKey, $variantId, 3600);
+                    return $variantId;
                 }
             }
+        }
 
-            return null;
-        });
+        return null;
     }
 
     /**
@@ -600,7 +604,7 @@ class ShopifyProductService
                     $safe = str_replace(['"', "'", '\\'], '', $s);
                     return "sku:{$safe}";
                 }, $chunk);
-                
+
                 $filter = implode(' OR ', $filterParts);
 
                 try {
@@ -660,7 +664,7 @@ class ShopifyProductService
         return Cache::remember($cacheKey, 3600, function () use ($type) {
             $result = [];
             $cursor = null;
-            $filter = "tag:{$type} status:active";
+            $filter = "tag:{$type} (status:active OR status:draft)";
 
             do {
                 $response = $this->client->graphql(self::GQL_LOAD_PRODUCTS, [
@@ -703,6 +707,11 @@ class ShopifyProductService
     {
         Cache::forget('shopify_variant_data_' . md5($variantId));
         Cache::forget('shopify_variant_detail_' . md5($variantId));
+
+        // We can't easily know the SKU for this variant without fetching it,
+        // but if we have the data, we might be able to clear it.
+        // For now, these are the primary ones.
+
         Cache::forget('shopify_products_deal');
         Cache::forget('shopify_products_manifest-item');
     }
@@ -712,8 +721,7 @@ class ShopifyProductService
      */
     public function clearProductCaches(string $productId): void
     {
-        // Since we don't easily know all variant IDs for a product here, 
-        // and product metafields might affect variant data, we clear common caches
+        // Clear the product list caches as any change to a product might affect them
         Cache::forget('shopify_products_deal');
         Cache::forget('shopify_products_manifest-item');
     }
