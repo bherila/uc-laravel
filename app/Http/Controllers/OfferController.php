@@ -9,6 +9,9 @@ use App\Services\Offer\OfferService;
 use App\Services\Shopify\ShopifyClient;
 use App\Services\Shopify\ShopifyProductService;
 use App\Services\Shopify\ShopifyOrderService;
+use App\Services\Shopify\ShopifyOrderEditService;
+use App\Services\Shopify\ShopifyFulfillmentService;
+use App\Services\Shopify\ShopifyOrderProcessingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -208,6 +211,48 @@ class OfferController extends Controller
             $offerService = $this->makeOfferService($request);
             $offerService->forceReload($offer);
             return response()->json(['message' => 'Cache flushed successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Force repick all manifests for an order (admin only)
+     */
+    public function repickOrder(Request $request, int $shop, string $orderId): JsonResponse
+    {
+        try {
+            $shopModel = ShopifyShop::findOrFail($shop);
+            
+            // Normalize order ID to URI format
+            $orderIdUri = str_starts_with($orderId, 'gid://shopify/Order/')
+                ? $orderId
+                : "gid://shopify/Order/{$orderId}";
+
+            // Create the order processing service for this shop
+            $client = new ShopifyClient($shopModel);
+            $orderService = new ShopifyOrderService($client);
+            $orderEditService = new ShopifyOrderEditService($client);
+            $fulfillmentService = new ShopifyFulfillmentService($client);
+            $productService = new ShopifyProductService($client);
+
+            $orderProcessingService = new ShopifyOrderProcessingService(
+                $client,
+                $orderService,
+                $orderEditService,
+                $fulfillmentService,
+                $productService
+            );
+
+            // Process order with force repick enabled
+            $orderProcessingService->processOrder(
+                $orderIdUri,
+                null, // no webhook ID
+                true, // force repick
+                $request->user()->id // user ID for audit log
+            );
+
+            return response()->json(['message' => 'Order manifests repicked successfully']);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }

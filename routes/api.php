@@ -75,6 +75,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     // Audit Logs
     Route::get('audit-logs', [AuditLogController::class, 'list']);
+
+    // Order Operations
+    Route::post('shops/{shop}/orders/{orderId}/repick', [OfferController::class, 'repickOrder']);
 });
 
 // Shopify Webhook (no auth - uses HMAC verification and shop domain lookup)

@@ -16,6 +16,26 @@ class OfferManifestService
     ) {}
 
     /**
+     * Get the appropriate random function for the current database driver
+     */
+    private function getRandomFunction(): string
+    {
+        $driver = DB::connection()->getDriverName();
+        return $driver === 'sqlite' ? 'RANDOM()' : 'RAND()';
+    }
+
+    /**
+     * Reshuffle assignment ordering for all unassigned manifests in an offer
+     */
+    public function reshuffleUnassignedManifests(int $offerId): int
+    {
+        $randomFn = $this->getRandomFunction();
+        return OfferManifest::where('offer_id', $offerId)
+            ->whereNull('assignee_id')
+            ->update(['assignment_ordering' => DB::raw($randomFn)]);
+    }
+
+    /**
      * Update offer manifests with new SKU quantities
      *
      * @param int $offerId
@@ -25,8 +45,9 @@ class OfferManifestService
     public function putSkuQty(int $offerId, array $skuQtyToSet): Offer
     {
         $offer = Offer::findOrFail($offerId);
+        $manifestsChanged = false;
 
-        DB::transaction(function () use ($offerId, $skuQtyToSet) {
+        DB::transaction(function () use ($offerId, $skuQtyToSet, &$manifestsChanged) {
             foreach ($skuQtyToSet as $item) {
                 $sku = $item['sku'];
                 $qty = $item['qty'];
@@ -55,6 +76,7 @@ class OfferManifestService
                             'assignment_ordering' => $maxOrdering + $i + 1,
                         ]);
                     }
+                    $manifestsChanged = true;
                 } elseif ($qty < $totalCount) {
                     // Need to remove manifests to reach target total
                     $toRemove = min($totalCount - $qty, $unassignedCount);
@@ -66,8 +88,14 @@ class OfferManifestService
                             ->orderBy('assignment_ordering', 'desc')
                             ->limit($toRemove)
                             ->delete();
+                        $manifestsChanged = true;
                     }
                 }
+            }
+
+            // Reshuffle assignment ordering for all unassigned manifests in this offer
+            if ($manifestsChanged) {
+                $this->reshuffleUnassignedManifests($offerId);
             }
         });
 

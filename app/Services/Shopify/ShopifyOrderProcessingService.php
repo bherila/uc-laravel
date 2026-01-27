@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Shopify;
 
+use App\Models\AuditLog;
 use App\Models\WebhookSub;
 use App\Models\Offer;
 use App\Models\OfferManifest;
@@ -17,11 +18,14 @@ use Illuminate\Support\Facades\DB;
 class ShopifyOrderProcessingService
 {
     private const SHOULD_REPICK_ALL_BOTTLES = true;
+    private const MAX_DIVERSITY_RETRIES = 5;
 
     private ?int $currentOfferId = null;
     private ?int $currentOrderIdNumeric = null;
     private int $startTime;
     private ?int $webhookId = null;
+    private bool $forceRepick = false;
+    private ?int $forceRepickUserId = null;
 
     public function __construct(
         private ShopifyClient $client,
@@ -32,11 +36,27 @@ class ShopifyOrderProcessingService
     ) {}
 
     /**
-     * Process a Shopify order - main entry point
+     * Get the appropriate random function for the current database driver
      */
-    public function processOrder(string $orderId, ?int $webhookId = null): void
+    private function getRandomFunction(): string
+    {
+        $driver = DB::connection()->getDriverName();
+        return $driver === 'sqlite' ? 'RANDOM()' : 'RAND()';
+    }
+
+    /**
+     * Process a Shopify order - main entry point
+     * 
+     * @param string $orderId The Shopify order ID (URI format)
+     * @param int|null $webhookId The webhook ID for logging
+     * @param bool $forceRepick Force repick all bottles even if needQty is 0
+     * @param int|null $forceRepickUserId The user ID who initiated the force repick (for audit log)
+     */
+    public function processOrder(string $orderId, ?int $webhookId = null, bool $forceRepick = false, ?int $forceRepickUserId = null): void
     {
         $this->webhookId = $webhookId;
+        $this->forceRepick = $forceRepick;
+        $this->forceRepickUserId = $forceRepickUserId;
         $this->client->setWebhookId($webhookId);
         
         $orderIdNumeric = $this->extractOrderIdNumeric($orderId);
@@ -162,8 +182,41 @@ class ShopifyOrderProcessingService
 
             $this->logSub("{$alreadyHaveQty} already allocated, need {$needQty} more");
 
-            // Maybe repick all bottles
-            if (self::SHOULD_REPICK_ALL_BOTTLES && $needQty > 0 && $alreadyHaveQty > 0) {
+            // Handle force repick: unassign all manifests and reassign from scratch
+            if ($this->forceRepick && $alreadyHaveQty > 0 && $shopifyOrder['cancelledAt'] === null) {
+                $this->logSub("Force repick requested - unassigning all {$alreadyHaveQty} bottles");
+                
+                $rowsReverted = OfferManifest::where('assignee_id', $orderIdUri)
+                    ->where('offer_id', $this->currentOfferId)
+                    ->update(['assignee_id' => null]);
+
+                $this->logSub("Reverted {$rowsReverted} bottles due to FORCE REPICK");
+
+                // Log the force repick to audit log
+                AuditLog::create([
+                    'event_name' => 'order.force_repick',
+                    'event_ts' => now(),
+                    'event_userid' => $this->forceRepickUserId,
+                    'event_details' => json_encode([
+                        'order_id' => $orderIdUri,
+                        'offer_id' => $this->currentOfferId,
+                        'bottles_reverted' => $rowsReverted,
+                    ]),
+                    'offer_id' => $this->currentOfferId,
+                    'order_id' => $this->currentOrderIdNumeric,
+                ]);
+
+                // Reshuffle all available bottles
+                $reshuffleQty = OfferManifest::where('offer_id', $this->currentOfferId)
+                    ->whereNull('assignee_id')
+                    ->update(['assignment_ordering' => DB::raw($this->getRandomFunction())]);
+
+                $this->logSub("Reshuffled {$reshuffleQty} unpicked bottles");
+
+                $needQty = $orderLineItem['currentQuantity'];
+            }
+            // Maybe repick all bottles (standard double-down behavior)
+            elseif (self::SHOULD_REPICK_ALL_BOTTLES && $needQty > 0 && $alreadyHaveQty > 0) {
                 $rowsReverted = OfferManifest::where('assignee_id', $orderIdUri)
                     ->where('offer_id', $this->currentOfferId)
                     ->orderBy('assignment_ordering')
@@ -175,7 +228,7 @@ class ShopifyOrderProcessingService
                 // Reshuffle all available bottles
                 $reshuffleQty = OfferManifest::where('offer_id', $this->currentOfferId)
                     ->whereNull('assignee_id')
-                    ->update(['assignment_ordering' => DB::raw('RAND()')]);
+                    ->update(['assignment_ordering' => DB::raw($this->getRandomFunction())]);
 
                 $this->logSub("Reshuffled {$reshuffleQty} unpicked bottles");
 
@@ -183,37 +236,8 @@ class ShopifyOrderProcessingService
             }
 
             if ($needQty > 0) {
-                // Allocate bottles
-                $rowsAffected = DB::update(
-                    "UPDATE v3_offer_manifest SET assignee_id = ? WHERE offer_id = ? AND assignee_id IS NULL ORDER BY assignment_ordering LIMIT ?",
-                    [$orderIdUri, $this->currentOfferId, $needQty]
-                );
-
-                if ($rowsAffected < $needQty) {
-                    // Not enough bottles - revert and cancel
-                    $rowsReverted = OfferManifest::where('assignee_id', $orderIdUri)
-                        ->where('offer_id', $this->currentOfferId)
-                        ->orderBy('assignment_ordering')
-                        ->limit($rowsAffected)
-                        ->update(['assignee_id' => null]);
-
-                    $this->logSub("Reverted {$rowsReverted} rows due to insufficient allocation");
-
-                    // Cancel order
-                    $this->logSub("Attempting to cancel order {$orderIdUri}");
-                    try {
-                        $this->orderService->cancelOrder($orderIdUri);
-                    } catch (\Exception $e) {
-                        $this->logSub("Cancel error: " . $e->getMessage());
-                    }
-
-                    // Set variant quantity to 0
-                    try {
-                        $this->productService->setVariantQuantity($purchasedDealVariantUri, 0);
-                    } catch (\Exception $e) {
-                        $this->logSub("Set quantity error: " . $e->getMessage());
-                    }
-                }
+                // Allocate bottles with diversity check
+                $this->allocateBottlesWithDiversityCheck($orderIdUri, $needQty, $purchasedDealVariantUri);
             } elseif ($needQty < 0) {
                 // Release bottles
                 $rowsAffected = DB::update(
@@ -227,6 +251,121 @@ class ShopifyOrderProcessingService
 
         // Now update the Shopify order with manifest items
         $this->syncOrderLineItems($orderIdUri, $shopifyOrder);
+    }
+
+    /**
+     * Allocate bottles with diversity check - ensures variety in assigned manifests
+     * Retries up to MAX_DIVERSITY_RETRIES times if all assigned manifests are the same item
+     */
+    private function allocateBottlesWithDiversityCheck(string $orderIdUri, int $needQty, string $purchasedDealVariantUri): void
+    {
+        for ($attempt = 1; $attempt <= self::MAX_DIVERSITY_RETRIES; $attempt++) {
+            // Allocate bottles
+            $rowsAffected = DB::update(
+                "UPDATE v3_offer_manifest SET assignee_id = ? WHERE offer_id = ? AND assignee_id IS NULL ORDER BY assignment_ordering LIMIT ?",
+                [$orderIdUri, $this->currentOfferId, $needQty]
+            );
+
+            if ($rowsAffected < $needQty) {
+                // Not enough bottles - revert and cancel
+                $this->handleInsufficientAllocation($orderIdUri, $rowsAffected, $purchasedDealVariantUri);
+                return;
+            }
+
+            // Check diversity - get unique variants assigned to this order
+            $assignedVariants = OfferManifest::where('assignee_id', $orderIdUri)
+                ->where('offer_id', $this->currentOfferId)
+                ->distinct()
+                ->pluck('mf_variant')
+                ->toArray();
+
+            $hasVariety = count($assignedVariants) > 1;
+
+            if ($hasVariety || $needQty === 1) {
+                $this->logSub("Allocation has variety ({$attempt} attempt(s)), proceeding with " . count($assignedVariants) . " unique variants");
+                return;
+            }
+
+            // All assigned manifests are the same variant - check if variety exists in unassigned
+            $unassignedVariants = OfferManifest::where('offer_id', $this->currentOfferId)
+                ->whereNull('assignee_id')
+                ->distinct()
+                ->pluck('mf_variant')
+                ->toArray();
+
+            $varietyInUnassigned = count($unassignedVariants) > 0 && 
+                (count($unassignedVariants) > 1 || $unassignedVariants[0] !== $assignedVariants[0]);
+
+            if (!$varietyInUnassigned) {
+                $this->logSub("No variety available in unassigned manifests, keeping current allocation");
+                return;
+            }
+
+            // Log the diversity retry attempt
+            AuditLog::create([
+                'event_name' => 'order.diversity_retry',
+                'event_ts' => now(),
+                'event_details' => json_encode([
+                    'order_id' => $orderIdUri,
+                    'offer_id' => $this->currentOfferId,
+                    'attempt' => $attempt,
+                    'assigned_variant' => $assignedVariants[0] ?? null,
+                    'qty' => $needQty,
+                ]),
+                'offer_id' => $this->currentOfferId,
+                'order_id' => $this->currentOrderIdNumeric,
+            ]);
+
+            $this->logSub("Diversity retry attempt {$attempt}: all {$needQty} bottles are same variant, unassigning and reshuffling");
+
+            // Unassign the bottles we just assigned
+            OfferManifest::where('assignee_id', $orderIdUri)
+                ->where('offer_id', $this->currentOfferId)
+                ->update(['assignee_id' => null]);
+
+            // Reshuffle all available bottles
+            OfferManifest::where('offer_id', $this->currentOfferId)
+                ->whereNull('assignee_id')
+                ->update(['assignment_ordering' => DB::raw($this->getRandomFunction())]);
+        }
+
+        // After max retries, proceed with whatever we have
+        $this->logSub("Max diversity retries reached, proceeding with current allocation");
+        
+        // Do one final allocation
+        DB::update(
+            "UPDATE v3_offer_manifest SET assignee_id = ? WHERE offer_id = ? AND assignee_id IS NULL ORDER BY assignment_ordering LIMIT ?",
+            [$orderIdUri, $this->currentOfferId, $needQty]
+        );
+    }
+
+    /**
+     * Handle case where not enough bottles are available for allocation
+     */
+    private function handleInsufficientAllocation(string $orderIdUri, int $rowsAffected, string $purchasedDealVariantUri): void
+    {
+        $rowsReverted = OfferManifest::where('assignee_id', $orderIdUri)
+            ->where('offer_id', $this->currentOfferId)
+            ->orderBy('assignment_ordering')
+            ->limit($rowsAffected)
+            ->update(['assignee_id' => null]);
+
+        $this->logSub("Reverted {$rowsReverted} rows due to insufficient allocation");
+
+        // Cancel order
+        $this->logSub("Attempting to cancel order {$orderIdUri}");
+        try {
+            $this->orderService->cancelOrder($orderIdUri);
+        } catch (\Exception $e) {
+            $this->logSub("Cancel error: " . $e->getMessage());
+        }
+
+        // Set variant quantity to 0
+        try {
+            $this->productService->setVariantQuantity($purchasedDealVariantUri, 0);
+        } catch (\Exception $e) {
+            $this->logSub("Set quantity error: " . $e->getMessage());
+        }
     }
 
     private function syncOrderLineItems(string $orderIdUri, array $shopifyOrder): void

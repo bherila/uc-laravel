@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { formatCurrency } from '@/lib/currency';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import {
   Dialog,
@@ -19,6 +19,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface LineItem {
   line_item_id: string;
@@ -85,11 +101,29 @@ function ShopifyManifestsPage() {
   const [data, setData] = useState<OfferOrders | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [repickingOrderId, setRepickingOrderId] = useState<string | null>(null);
 
   const root = document.getElementById('offer-manifests-root');
   const offerId = root?.dataset.offerId;
   const shopId = root?.dataset.shopId;
   const apiBase = root?.dataset.apiBase || '/api';
+  const isAdmin = root?.dataset.isAdmin === 'true';
+
+  const handleRepick = async (orderId: string) => {
+    setRepickingOrderId(orderId);
+    try {
+      const numericOrderId = orderId.replace('gid://shopify/Order/', '');
+      await fetchWrapper.post(`${apiBase}/admin/shops/${shopId}/orders/${numericOrderId}/repick`, {});
+      // Reload data after repick
+      const ordersData = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}/orders`);
+      setData(ordersData);
+    } catch (err: any) {
+      console.error('Failed to repick order:', err);
+      setError(err?.error || 'Failed to repick order');
+    } finally {
+      setRepickingOrderId(null);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -182,6 +216,7 @@ function ShopifyManifestsPage() {
                 <TableHead className="text-center">Upgrades</TableHead>
                 <TableHead className="text-center">Consumer Surplus</TableHead>
                 <TableHead>Upgrade Items</TableHead>
+                {isAdmin && <TableHead className="text-center">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -291,6 +326,71 @@ function ShopifyManifestsPage() {
                         </div>
                       ))}
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-center">
+                        {(() => {
+                          const isCancelled = !!order.cancelledAt;
+                          const isShipped = order.displayFulfillmentStatus === 'FULFILLED';
+                          const isRepicking = repickingOrderId === order.id;
+                          const isDisabled = isCancelled || isShipped || isRepicking;
+
+                          const getTooltipMessage = () => {
+                            if (isCancelled) return "Cannot repick: Order is cancelled";
+                            if (isShipped) return "Cannot repick: Order is already shipped";
+                            return "Repick manifests for this order";
+                          };
+
+                          const button = (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isDisabled}
+                            >
+                              {isRepicking ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4" />
+                              )}
+                            </Button>
+                          );
+
+                          return (
+                            <AlertDialog>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  {isDisabled ? (
+                                    <div className="inline-block">{button}</div>
+                                  ) : (
+                                    <AlertDialogTrigger asChild>
+                                      <div className="inline-block">{button}</div>
+                                    </AlertDialogTrigger>
+                                  )}
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {getTooltipMessage()}
+                                </TooltipContent>
+                              </Tooltip>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Repick Order Manifests?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will unassign all {order.upgradeQty} bottle(s) from this order and 
+                                    randomly reassign new bottles from the remaining inventory. The customer 
+                                    will receive different wines but the same quantity at no additional charge.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleRepick(order.id)}>
+                                    Repick Bottles
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          );
+                        })()}
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}

@@ -9,7 +9,8 @@ A multi-tenant Laravel-based web application for managing Underground Cellar win
 - **Admin Management**: Dedicated admin pages for managing users and stores
 - **Offer Management**: Create and manage wine offers with Shopify product integration and manifest tracking (offered vs allocated)
 - **Manifest Allocation**: Add wine bottles to offers and track allocation to orders
-- **Order Processing**: Automatic order manifest allocation via Shopify webhooks
+- **Order Processing**: Automatic order manifest allocation via Shopify webhooks with diversity check (retries up to 5 times to ensure variety in bottle selection)
+- **Order Repick**: Admin-only feature to force reassignment of all manifests for an order from remaining inventory
 - **Webhook Management**: Log, view, and re-run incoming Shopify webhooks with full payload inspection
 - **Audit Log Management**: View and search system event logs with detailed payload inspection
 - **Profitability Analysis**: Calculate margins, break-even scenarios, and sell-through projections
@@ -240,6 +241,7 @@ resources/js/
 - `GET /api/admin/webhooks/{id}` - Get webhook details
 - `POST /api/admin/webhooks/{id}/rerun` - Re-run webhook
 - `GET /api/admin/audit-logs` - List and search audit logs
+- `POST /api/admin/shops/{shop}/orders/{orderId}/repick` - Force repick all manifests for an order
 
 ## Web Routes
 

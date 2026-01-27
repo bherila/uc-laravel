@@ -100,7 +100,7 @@ All under [app/Models](app/Models):
 - `ShopifyClient` - Base GraphQL client with shop-specific credentials
 - `ShopifyProductService` - Product data, inventory, metafields
 - `ShopifyOrderService` - Order queries, cancel, capture
-- `ShopifyOrderProcessingService` - Full order processing with manifest allocation
+- `ShopifyOrderProcessingService` - Full order processing with manifest allocation, diversity check (retries up to 5x for variety), and force repick support
 - `ShopifyOrderEditService` - Order edit mutations (line items, discounts, shipping)
 - `ShopifyFulfillmentService` - Fulfillment order operations
 
@@ -140,6 +140,7 @@ Defined in [routes/api.php](routes/api.php):
 - `GET /api/admin/webhooks/{id}` - Get details
 - `POST /api/admin/webhooks/{id}/rerun` - Re-run webhook
 - `GET /api/admin/audit-logs` - List and search audit logs
+- `POST /api/admin/shops/{shop}/orders/{orderId}/repick` - Force repick all manifests for an order
 
 ## Frontend Patterns
 
@@ -234,6 +235,7 @@ The `ShopifyProductService` implements a robust caching strategy to minimize API
 - Shows orders with purchased vs upgrade items
 - Highlights quantity mismatches
 - Links to Shopify order admin
+- Admin-only Repick button to force reassignment of all manifests for an order (disabled for cancelled/shipped orders with tooltip explanation)
 
 ## Authentication
 
