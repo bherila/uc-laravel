@@ -521,7 +521,7 @@ class ShopifyOrderProcessingService
                     $fulfillAt = $firstOrder['fulfillAt'];
 
                     $areMergeable = true;
-                    $hasNonShipping = false;
+                    $specificNames = [];
 
                     foreach ($openOrders as $fo) {
                         if (($fo['assignedLocation']['location']['id'] ?? null) !== $locationId
@@ -529,18 +529,26 @@ class ShopifyOrderProcessingService
                             $areMergeable = false;
                             break;
                         }
-                        if (($fo['deliveryMethod']['presentedName'] ?? '') !== 'Shipping') {
-                            $hasNonShipping = true;
+
+                        $name = $fo['deliveryMethod']['presentedName'] ?? '';
+                        if ($name !== 'Shipping' && $name !== '') {
+                            $specificNames[$name] = true;
                         }
                     }
 
-                    if ($areMergeable && $hasNonShipping) {
+                    // Merge if they are at the same location/time and we don't have conflicting specific names
+                    // We also allow merging if they are all "Shipping" or generic (count($specificNames) == 0)
+                    if ($areMergeable && count($specificNames) <= 1) {
                         $this->logSub('Fulfillment orders are mergeable. Merging now.');
 
-                        // Sort so non-shipping comes first
+                        // Sort so non-shipping comes first (higher priority)
                         usort($openOrders, function ($a, $b) {
-                            $aIsShipping = ($a['deliveryMethod']['presentedName'] ?? '') === 'Shipping' ? 1 : 0;
-                            $bIsShipping = ($b['deliveryMethod']['presentedName'] ?? '') === 'Shipping' ? 1 : 0;
+                            $aName = $a['deliveryMethod']['presentedName'] ?? '';
+                            $bName = $b['deliveryMethod']['presentedName'] ?? '';
+
+                            $aIsShipping = ($aName === 'Shipping' || $aName === '') ? 1 : 0;
+                            $bIsShipping = ($bName === 'Shipping' || $bName === '') ? 1 : 0;
+
                             return $aIsShipping - $bIsShipping;
                         });
 
