@@ -534,10 +534,10 @@ class ShopifyOrderProcessingService
             $fulfillmentOrders = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
             $this->logSub("Found " . count($fulfillmentOrders) . " fulfillment orders");
 
-            if (count($fulfillmentOrders) > 1) {
+            if (count($fulfillmentOrders) >= 1) {
                 $openOrders = array_filter($fulfillmentOrders, fn($fo) => $fo['status'] === 'OPEN');
 
-                if (count($openOrders) > 1) {
+                if (count($openOrders) >= 1) {
                     $openOrders = array_values($openOrders);
                     $firstOrder = $openOrders[0];
                     $locationId = $firstOrder['assignedLocation']['location']['id'] ?? null;
@@ -567,8 +567,13 @@ class ShopifyOrderProcessingService
 
                     // Merge if they are at the same location/time and we don't have conflicting specific names
                     // We also allow merging if they are all "Shipping" or generic (count($specificNames) == 0)
+                    // We also allow "merging" a single generic group to potentially trigger a name resolution
                     if ($areMergeable && count($specificNames) <= 1) {
-                        $this->logSub('Fulfillment orders are mergeable. Merging now.');
+                        if (count($openOrders) > 1) {
+                            $this->logSub('Fulfillment orders are mergeable. Merging now.');
+                        } else {
+                            $this->logSub('Attempting to resolve shipping method name for single fulfillment order.');
+                        }
 
                         // Sort so non-shipping comes first (higher priority)
                         usort($openOrders, function ($a, $b) use ($orderShippingTitle) {
