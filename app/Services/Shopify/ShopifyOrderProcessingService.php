@@ -265,7 +265,14 @@ class ShopifyOrderProcessingService
         $orderIdUri = "gid://shopify/Order/{$orderIdNumeric}";
         $this->currentOrderIdNumeric = $orderIdNumeric;
         
-        $this->tryMergeFulfillmentOrders($orderIdUri);
+        // Fetch order to get shipping line
+        $orders = $this->orderService->getOrdersWithLineItems([$orderIdUri]);
+        $shippingTitle = null;
+        if (!empty($orders)) {
+            $shippingTitle = $orders[0]['shippingLine']['title'] ?? null;
+        }
+
+        $this->tryMergeFulfillmentOrders($orderIdUri, $shippingTitle);
     }
 
     /**
@@ -514,13 +521,14 @@ class ShopifyOrderProcessingService
             $this->logSub('orderEditCommit: ' . json_encode($commitResult));
 
             // Try to merge fulfillment orders
-            $this->tryMergeFulfillmentOrders($orderIdUri);
+            $shippingTitle = $shopifyOrder['shippingLine']['title'] ?? null;
+            $this->tryMergeFulfillmentOrders($orderIdUri, $shippingTitle);
         } else {
             $this->logSub('SKIP orderEditCommit - Nothing to do');
         }
     }
 
-    private function tryMergeFulfillmentOrders(string $orderIdUri): void
+    private function tryMergeFulfillmentOrders(string $orderIdUri, ?string $orderShippingTitle = null): void
     {
         try {
             $fulfillmentOrders = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
@@ -546,6 +554,12 @@ class ShopifyOrderProcessingService
                         }
 
                         $name = $fo['deliveryMethod']['presentedName'] ?? '';
+                        
+                        // If name is generic "Shipping", try to resolve to order's shipping title
+                        if (($name === 'Shipping' || $name === '') && $orderShippingTitle) {
+                            $name = $orderShippingTitle;
+                        }
+
                         if ($name !== 'Shipping' && $name !== '') {
                             $specificNames[$name] = true;
                         }
@@ -557,9 +571,15 @@ class ShopifyOrderProcessingService
                         $this->logSub('Fulfillment orders are mergeable. Merging now.');
 
                         // Sort so non-shipping comes first (higher priority)
-                        usort($openOrders, function ($a, $b) {
+                        usort($openOrders, function ($a, $b) use ($orderShippingTitle) {
                             $aName = $a['deliveryMethod']['presentedName'] ?? '';
                             $bName = $b['deliveryMethod']['presentedName'] ?? '';
+
+                            // Treat generic names as order shipping title for sorting priority if needed,
+                            // but generally we want "Real Specific" > "Resolved Specific (was Shipping)" > "Generic"
+                            // Actually, just pushing "Shipping" to the bottom is enough because:
+                            // 1. If we have "Real Specific", it will be top. "Shipping" (even if valid) will be bottom. Merge "Shipping" into "Real". Result "Real".
+                            // 2. If we have only "Shipping"s. Order is arbitrary. Result "Shipping".
 
                             $aIsShipping = ($aName === 'Shipping' || $aName === '') ? 1 : 0;
                             $bIsShipping = ($bName === 'Shipping' || $bName === '') ? 1 : 0;
