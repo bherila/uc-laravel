@@ -116,6 +116,16 @@ class ShopifyOrderService
                         status
                         kind
                     }
+                    fulfillmentOrders(first: 10, displayable: true) {
+                        nodes {
+                            id
+                            status
+                            deliveryMethod {
+                                methodType
+                                presentedName
+                            }
+                        }
+                    }
                     fulfillments(first: 5) {
                         status
                         trackingInfo {
@@ -235,6 +245,15 @@ class ShopifyOrderService
                 ];
             }
 
+            $fulfillmentOrders = [];
+            foreach ($node['fulfillmentOrders']['nodes'] ?? [] as $fo) {
+                $fulfillmentOrders[] = [
+                    'id' => $fo['id'],
+                    'status' => $fo['status'],
+                    'deliveryMethod' => $fo['deliveryMethod'] ?? null,
+                ];
+            }
+
             $fulfillments = [];
             foreach ($node['fulfillments'] ?? [] as $f) {
                 $tracking = [];
@@ -263,6 +282,7 @@ class ShopifyOrderService
                 'shippingLine' => $node['shippingLine'],
                 'lineItems_nodes' => $lineItems,
                 'transactions_nodes' => $transactions,
+                'fulfillmentOrders_nodes' => $fulfillmentOrders,
                 'fulfillments_nodes' => $fulfillments,
             ];
         }

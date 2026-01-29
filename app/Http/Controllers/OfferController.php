@@ -257,4 +257,41 @@ class OfferController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Combine shipping (merge fulfillment orders) for an order (admin only)
+     */
+    public function combineShipping(Request $request, int $shop, string $orderId): JsonResponse
+    {
+        try {
+            $shopModel = ShopifyShop::findOrFail($shop);
+            
+            // Normalize order ID to URI format
+            $orderIdUri = str_starts_with($orderId, 'gid://shopify/Order/')
+                ? $orderId
+                : "gid://shopify/Order/{$orderId}";
+
+            // Create the order processing service for this shop
+            $client = new ShopifyClient($shopModel);
+            $orderService = new ShopifyOrderService($client);
+            $orderEditService = new ShopifyOrderEditService($client);
+            $fulfillmentService = new ShopifyFulfillmentService($client);
+            $productService = new ShopifyProductService($client);
+
+            $orderProcessingService = new ShopifyOrderProcessingService(
+                $client,
+                $orderService,
+                $orderEditService,
+                $fulfillmentService,
+                $productService
+            );
+
+            // Trigger merge
+            $orderProcessingService->combineFulfillmentOrders($orderIdUri);
+
+            return response()->json(['message' => 'Shipping combination attempted']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

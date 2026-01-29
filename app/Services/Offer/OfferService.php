@@ -511,6 +511,7 @@ class OfferService
                 'createdAt' => $order['createdAt'],
                 'email' => $order['email'],
                 'displayFinancialStatus' => $order['displayFinancialStatus'],
+                'displayFulfillmentStatus' => $order['displayFulfillmentStatus'],
                 'cancelledAt' => $order['cancelledAt'],
                 'totalPrice' => $order['totalPriceSet_shopMoney_amount'],
                 'purchasedItems' => array_values($purchasedItems),
@@ -521,6 +522,8 @@ class OfferService
                 'upgradeValue' => $upgradeValue,
                 'upgradeCost' => $upgradeCost,
                 'isQtyEqual' => $isQtyEqual,
+                'fulfillments_nodes' => $order['fulfillments_nodes'],
+                'fulfillmentOrders_nodes' => $order['fulfillmentOrders_nodes'],
             ];
 
             // Accumulate totals

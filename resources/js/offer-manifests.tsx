@@ -68,6 +68,14 @@ interface Order {
       url: string | null;
     }[];
   }[];
+  fulfillmentOrders_nodes: {
+    id: string;
+    status: string;
+    deliveryMethod: {
+      methodType: string;
+      presentedName: string;
+    } | null;
+  }[];
 }
 
 interface OfferOrders {
@@ -102,6 +110,7 @@ function ShopifyManifestsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [repickingOrderId, setRepickingOrderId] = useState<string | null>(null);
+  const [combiningOrderId, setCombiningOrderId] = useState<string | null>(null);
 
   const root = document.getElementById('offer-manifests-root');
   const offerId = root?.dataset.offerId;
@@ -122,6 +131,22 @@ function ShopifyManifestsPage() {
       setError(err?.error || 'Failed to repick order');
     } finally {
       setRepickingOrderId(null);
+    }
+  };
+
+  const handleCombine = async (orderId: string) => {
+    setCombiningOrderId(orderId);
+    try {
+      const numericOrderId = orderId.replace('gid://shopify/Order/', '');
+      await fetchWrapper.post(`${apiBase}/admin/shops/${shopId}/orders/${numericOrderId}/combine-shipping`, {});
+      // Reload data after combine
+      const ordersData = await fetchWrapper.get(`${apiBase}/shops/${shopId}/offers/${offerId}/orders`);
+      setData(ordersData);
+    } catch (err: any) {
+      console.error('Failed to combine shipping:', err);
+      setError(err?.error || 'Failed to combine shipping');
+    } finally {
+      setCombiningOrderId(null);
     }
   };
 
@@ -210,8 +235,8 @@ function ShopifyManifestsPage() {
               <TableRow>
                 <TableHead>Order</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Customer</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Shipping Method</TableHead>
                 <TableHead className="text-center">Purchased</TableHead>
                 <TableHead className="text-center">Upgrades</TableHead>
                 <TableHead className="text-center">Consumer Surplus</TableHead>
@@ -238,11 +263,11 @@ function ShopifyManifestsPage() {
                         {order.id.replace('gid://shopify/Order/', '#')}
                         <ExternalLink className="w-3 h-3" />
                       </a>
+                      <div className="text-xs text-muted-foreground mt-1 truncate max-w-[150px]">{order.email}</div>
                     </TableCell>
                     <TableCell className="text-sm">
                       {formatDistanceToNow(parseISO(order.createdAt), { addSuffix: true })}
                     </TableCell>
-                    <TableCell className="text-sm truncate max-w-[200px]">{order.email}</TableCell>
                     <TableCell>
                       {order.displayFulfillmentStatus === 'FULFILLED' ? (
                         <Dialog>
@@ -303,6 +328,21 @@ function ShopifyManifestsPage() {
                         </Badge>
                       )}
                     </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        {(order.fulfillmentOrders_nodes || []).map((fo) => (
+                          <div key={fo.id} className="text-xs border rounded p-1 bg-muted/50">
+                            <div className="font-semibold">{fo.status}</div>
+                            <div className="truncate max-w-[150px]" title={fo.deliveryMethod?.presentedName || 'Unknown'}>
+                              {fo.deliveryMethod?.presentedName || 'Unknown'}
+                            </div>
+                          </div>
+                        ))}
+                        {(!order.fulfillmentOrders_nodes || order.fulfillmentOrders_nodes.length === 0) && (
+                          <div className="text-xs text-muted-foreground">No fulfillment data</div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-center">
                       <div className="font-medium">{order.purchasedQty} btl</div>
                       <div className="text-xs text-muted-foreground">{formatCurrency(order.purchasedValue)}</div>
@@ -328,6 +368,7 @@ function ShopifyManifestsPage() {
                     </TableCell>
                     {isAdmin && (
                       <TableCell className="text-center">
+                        <div className="flex items-center gap-1 justify-center">
                         {(() => {
                           const isCancelled = !!order.cancelledAt;
                           const isShipped = order.displayFulfillmentStatus === 'FULFILLED';
@@ -389,6 +430,35 @@ function ShopifyManifestsPage() {
                             </AlertDialog>
                           );
                         })()}
+                        
+                        {(() => {
+                           const hasMultipleGroups = (order.fulfillmentOrders_nodes || []).filter(x => x.status === 'OPEN').length > 1;
+                           const isCombining = combiningOrderId === order.id;
+                           const isDisabled = !hasMultipleGroups || isCombining;
+
+                           const button = (
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               disabled={isDisabled}
+                               onClick={() => handleCombine(order.id)}
+                             >
+                               {isCombining ? <Loader2 className="h-4 w-4 animate-spin" /> : "Combine"}
+                             </Button>
+                           );
+
+                           return (
+                             <Tooltip>
+                               <TooltipTrigger asChild>
+                                 <div className="inline-block">{button}</div>
+                               </TooltipTrigger>
+                               <TooltipContent>
+                                 {hasMultipleGroups ? "Combine shipping groups" : "Nothing to combine"}
+                               </TooltipContent>
+                             </Tooltip>
+                           );
+                        })()}
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>

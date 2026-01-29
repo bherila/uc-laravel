@@ -41,8 +41,8 @@ class ShopifyFulfillmentService
         GRAPHQL;
 
     private const GQL_FULFILLMENT_ORDER_MERGE = <<<'GRAPHQL'
-        mutation fulfillmentOrderMerge($fulfillmentOrderMergeInputs: [FulfillmentOrderMergeInput!]!) {
-            fulfillmentOrderMerge(fulfillmentOrderMergeInputs: $fulfillmentOrderMergeInputs) {
+        mutation fulfillmentOrderMerge($mergeIntents: [FulfillmentOrderMergeInput!]!) {
+            fulfillmentOrderMerge(mergeIntents: $mergeIntents) {
                 fulfillmentOrderMerges {
                     fulfillmentOrder {
                         id
@@ -114,7 +114,7 @@ class ShopifyFulfillmentService
     public function mergeFulfillmentOrders(array $inputs): array
     {
         $response = $this->client->graphql(self::GQL_FULFILLMENT_ORDER_MERGE, [
-            'fulfillmentOrderMergeInputs' => $inputs,
+            'mergeIntents' => $inputs,
         ]);
 
         $result = $response['fulfillmentOrderMerge'] ?? [];

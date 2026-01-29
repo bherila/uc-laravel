@@ -11,6 +11,7 @@ use App\Models\OfferManifest;
 use App\Models\OrderLock;
 use App\Models\OrderToVariant;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Service for processing Shopify orders - allocates manifest items to orders
@@ -251,6 +252,20 @@ class ShopifyOrderProcessingService
 
         // Now update the Shopify order with manifest items
         $this->syncOrderLineItems($orderIdUri, $shopifyOrder);
+    }
+
+    /**
+     * Manually trigger fulfillment order merging for a specific order.
+     * 
+     * @param string $orderId
+     */
+    public function combineFulfillmentOrders(string $orderId): void
+    {
+        $orderIdNumeric = $this->extractOrderIdNumeric($orderId);
+        $orderIdUri = "gid://shopify/Order/{$orderIdNumeric}";
+        $this->currentOrderIdNumeric = $orderIdNumeric;
+        
+        $this->tryMergeFulfillmentOrders($orderIdUri);
     }
 
     /**
@@ -569,6 +584,7 @@ class ShopifyOrderProcessingService
                 }
             }
         } catch (\Exception $e) {
+            Log::error("Fulfillment merge error for {$orderIdUri}: " . $e->getMessage());
             $this->logSub('Fulfillment merge error: ' . $e->getMessage());
         }
     }

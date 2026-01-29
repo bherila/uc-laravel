@@ -78,6 +78,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     // Order Operations
     Route::post('shops/{shop}/orders/{orderId}/repick', [OfferController::class, 'repickOrder']);
+    Route::post('shops/{shop}/orders/{orderId}/combine-shipping', [OfferController::class, 'combineShipping']);
 });
 
 // Shopify Webhook (no auth - uses HMAC verification and shop domain lookup)
