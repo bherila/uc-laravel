@@ -198,7 +198,7 @@ class ShopifyOrderProcessingService
                     'event_name' => 'order.force_repick',
                     'event_ts' => now(),
                     'event_userid' => $this->forceRepickUserId,
-                    'event_details' => json_encode([
+                    'event_ext' => json_encode([
                         'order_id' => $orderIdUri,
                         'offer_id' => $this->currentOfferId,
                         'bottles_reverted' => $rowsReverted,
@@ -327,7 +327,7 @@ class ShopifyOrderProcessingService
             AuditLog::create([
                 'event_name' => 'order.diversity_retry',
                 'event_ts' => now(),
-                'event_details' => json_encode([
+                'event_ext' => json_encode([
                     'order_id' => $orderIdUri,
                     'offer_id' => $this->currentOfferId,
                     'attempt' => $attempt,

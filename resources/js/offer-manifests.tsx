@@ -435,7 +435,7 @@ function ShopifyManifestsPage() {
                            const openGroups = (order.fulfillmentOrders_nodes || []).filter(x => x.status === 'OPEN');
                            const hasMultipleGroups = openGroups.length > 1;
                            const hasSingleGenericGroup = openGroups.length === 1 && 
-                             (openGroups[0].deliveryMethod?.presentedName === 'Shipping' || !openGroups[0].deliveryMethod?.presentedName);
+                             (openGroups[0]?.deliveryMethod?.presentedName === 'Shipping' || !openGroups[0]?.deliveryMethod?.presentedName);
                            
                            const canCombine = hasMultipleGroups || hasSingleGenericGroup;
                            const isCombining = combiningOrderId === order.id;

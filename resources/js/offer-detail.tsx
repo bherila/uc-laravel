@@ -130,7 +130,6 @@ function OfferDetailPage() {
   };
 
   const deleteManifest = async (variantId: string) => {
-    if (!confirm('Are you sure you want to remove this product from the offer?')) return;
     setDeleting(variantId);
     try {
       await fetchWrapper.put(`${apiBase}/shops/${shopId}/offers/${offerId}/manifests`, {

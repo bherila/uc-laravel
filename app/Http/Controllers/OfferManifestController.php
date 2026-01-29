@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Offer\OfferManifestService;
 use App\Services\Shopify\ShopifyProductService;
+use App\Models\AuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -57,20 +58,54 @@ class OfferManifestController extends Controller
         [$manifestService, , $offerService] = $this->makeServices($request);
         $payloadKey = $request->has('manifests') ? 'manifests' : 'sku_qty';
 
-        $validated = $request->validate([
-            $payloadKey => 'required|array',
-            "$payloadKey.*.sku" => 'required|string',
-            "$payloadKey.*.qty" => 'required|integer|min:0',
-        ]);
-
         try {
+            $validated = $request->validate([
+                $payloadKey => 'required|array',
+                "$payloadKey.*.sku" => 'required|string',
+                "$payloadKey.*.qty" => 'required|integer|min:0',
+            ]);
+
             $manifestService->putSkuQty($offer, $validated[$payloadKey]);
             
             // Sync metafields after manifest update
             $offerService->updateOfferMetafields($offer);
             
+            AuditLog::create([
+                'event_name' => 'manifest.update',
+                'event_ts' => now(),
+                'event_userid' => auth()->id(),
+                'offer_id' => $offer,
+                'event_ext' => json_encode([
+                    'payload' => $validated[$payloadKey],
+                    'status' => 'success'
+                ]),
+            ]);
+
             return response()->json(['message' => 'Manifest quantities updated']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            AuditLog::create([
+                'event_name' => 'manifest.update_validation_error',
+                'event_ts' => now(),
+                'event_userid' => auth()->id(),
+                'offer_id' => $offer,
+                'event_ext' => json_encode([
+                    'payload' => $request->all(),
+                    'errors' => $e->errors(),
+                ]),
+            ]);
+            throw $e;
         } catch (\Exception $e) {
+            AuditLog::create([
+                'event_name' => 'manifest.update_error',
+                'event_ts' => now(),
+                'event_userid' => auth()->id(),
+                'offer_id' => $offer,
+                'event_ext' => json_encode([
+                    'payload' => $request->all(),
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]),
+            ]);
             return response()->json(['error' => $e->getMessage()], 422);
         }
     }
@@ -125,8 +160,30 @@ class OfferManifestController extends Controller
             // Sync metafields after manifest import
             $offerService->updateOfferMetafields($offer);
 
+            AuditLog::create([
+                'event_name' => 'manifest.import',
+                'event_ts' => now(),
+                'event_userid' => auth()->id(),
+                'offer_id' => $offer,
+                'event_ext' => json_encode([
+                    'count' => count($resolvedManifests),
+                    'status' => 'success'
+                ]),
+            ]);
+
             return response()->json(['message' => 'Successfully imported ' . count($resolvedManifests) . ' products']);
         } catch (\Exception $e) {
+            AuditLog::create([
+                'event_name' => 'manifest.import_error',
+                'event_ts' => now(),
+                'event_userid' => auth()->id(),
+                'offer_id' => $offer,
+                'event_ext' => json_encode([
+                    'payload' => $request->all(),
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]),
+            ]);
             return response()->json(['error' => $e->getMessage()], 422);
         }
     }
