@@ -73,10 +73,13 @@ class ShopifyOrderService
                             currencyCode
                         }
                     }
-                    shippingLine {
-                        title
-                        code
-                        shippingRateHandle
+                    shippingLines(first: 10, includeRemovals: true) {
+                        nodes {
+                            title
+                            code
+                            shippingRateHandle
+                            isRemoved
+                        }
                     }
                     lineItems(first: 250) {
                         nodes {
@@ -269,6 +272,23 @@ class ShopifyOrderService
                 ];
             }
 
+            // Determine original shipping line
+            $shippingLines = $node['shippingLines']['nodes'] ?? [];
+            $shippingLine = null;
+            
+            // Priority 1: Removed shipping line (indicates original before edit)
+            foreach ($shippingLines as $line) {
+                if (($line['isRemoved'] ?? false) === true) {
+                    $shippingLine = $line;
+                    break;
+                }
+            }
+            
+            // Priority 2: Active shipping line (if no removed line found)
+            if (!$shippingLine && !empty($shippingLines)) {
+                $shippingLine = $shippingLines[0];
+            }
+
             $orders[] = [
                 'id' => $node['id'],
                 'cancelledAt' => $node['cancelledAt'],
@@ -279,7 +299,7 @@ class ShopifyOrderService
                 'totalPriceSet_shopMoney_amount' => (float)($node['totalPriceSet']['shopMoney']['amount'] ?? 0),
                 'totalShippingPriceSet_shopMoney_amount' => (float)($node['totalShippingPriceSet']['shopMoney']['amount'] ?? 0),
                 'totalShippingPriceSet_shopMoney_currencyCode' => $node['totalShippingPriceSet']['shopMoney']['currencyCode'] ?? 'USD',
-                'shippingLine' => $node['shippingLine'],
+                'shippingLine' => $shippingLine,
                 'lineItems_nodes' => $lineItems,
                 'transactions_nodes' => $transactions,
                 'fulfillmentOrders_nodes' => $fulfillmentOrders,
