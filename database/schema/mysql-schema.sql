@@ -66,6 +66,49 @@ CREATE TABLE `cache_locks` (
   KEY `cache_locks_expiration_index` (`expiration`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `combine_operation_logs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `combine_operation_logs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `combine_operation_id` bigint(20) unsigned NOT NULL,
+  `event` text DEFAULT NULL,
+  `time_taken_ms` int(11) DEFAULT NULL,
+  `shopify_request` text DEFAULT NULL,
+  `shopify_response` text DEFAULT NULL,
+  `shopify_response_code` int(11) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `combine_operation_logs_combine_operation_id_foreign` (`combine_operation_id`),
+  CONSTRAINT `combine_operation_logs_combine_operation_id_foreign` FOREIGN KEY (`combine_operation_id`) REFERENCES `combine_operations` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `combine_operations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `combine_operations` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `audit_log_id` bigint(20) unsigned DEFAULT NULL,
+  `webhook_id` bigint(20) unsigned DEFAULT NULL,
+  `shop_id` bigint(20) unsigned DEFAULT NULL,
+  `order_id` varchar(100) NOT NULL,
+  `order_id_numeric` bigint(20) unsigned DEFAULT NULL,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `status` varchar(50) NOT NULL DEFAULT 'pending',
+  `error_message` text DEFAULT NULL,
+  `original_shipping_method` varchar(255) DEFAULT NULL,
+  `fulfillment_orders_before` int(11) DEFAULT NULL,
+  `fulfillment_orders_after` int(11) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `combine_operations_order_id_index` (`order_id`),
+  KEY `combine_operations_shop_id_index` (`shop_id`),
+  KEY `combine_operations_audit_log_id_index` (`audit_log_id`),
+  KEY `combine_operations_webhook_id_index` (`webhook_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `computed_buyer_varietals`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -720,3 +763,5 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (11,'2026_01_20_062
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (12,'2026_01_20_065704_add_time_taken_ms_to_webhook_subs_table',8);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (13,'2026_01_20_080132_add_is_archived_to_v3_offer_table',9);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (14,'2026_01_20_090000_add_topic_and_shop_id_to_webhooks_table',10);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (15,'2026_01_30_051618_create_combine_operation_logs_table',11);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (16,'2026_01_30_053444_add_webhook_id_to_combine_operations_table',12);

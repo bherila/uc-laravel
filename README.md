@@ -11,8 +11,10 @@ A multi-tenant Laravel-based web application for managing Underground Cellar win
 - **Manifest Allocation**: Add wine bottles to offers and track allocation to orders
 - **Order Processing**: Automatic order manifest allocation via Shopify webhooks with diversity check (retries up to 5 times to ensure variety in bottle selection)
 - **Order Repick**: Admin-only feature to force reassignment of all manifests for an order from remaining inventory
+- **Combine Shipping**: Admin-only feature to merge multiple fulfillment orders and restore the original shipping method selected by the customer
 - **Webhook Management**: Log, view, and re-run incoming Shopify webhooks with full payload inspection
 - **Audit Log Management**: View and search system event logs with detailed payload inspection
+- **Combine Operations Log**: Track and inspect combine shipping operations with detailed event logs
 - **Profitability Analysis**: Calculate margins, break-even scenarios, and sell-through projections
 - **Metafield Sync**: Automatically update Shopify product metafields with offer data
 - **Order Manifests**: View allocated orders and upgrade wine assignments
@@ -177,7 +179,9 @@ app/
         ├── ShopifyClient.php       # Shop-specific API client
         ├── ShopifyOrderService.php
         ├── ShopifyProductService.php
-        └── ShopifyOrderProcessingService.php
+        ├── ShopifyOrderProcessingService.php
+        ├── ShopifyFulfillmentService.php
+        └── FulfillmentOrderService.php  # Combine shipping operations
 
 resources/js/
 ├── shops.tsx                   # Shop list page

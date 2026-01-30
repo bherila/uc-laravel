@@ -119,7 +119,7 @@ class ShopifyOrderService
                         status
                         kind
                     }
-                    fulfillmentOrders(first: 10, displayable: true) {
+                    fulfillmentOrders(first: 10) {
                         nodes {
                             id
                             status

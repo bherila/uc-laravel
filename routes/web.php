@@ -10,6 +10,7 @@ use App\Http\Controllers\ShopController;
 use App\Http\Controllers\OfferManifestController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\CombineOperationController;
 
 // Home page
 Route::get('/', function () {
@@ -120,6 +121,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/webhooks/{id}', [WebhookController::class, 'showPage'])->name('admin.webhooks.detail');
 
         Route::get('/audit-logs', [AuditLogController::class, 'indexPage'])->name('admin.audit-logs');
+
+        Route::get('/combine-operations', [CombineOperationController::class, 'indexPage'])->name('admin.combine-operations');
+        Route::get('/combine-operations/{id}', [CombineOperationController::class, 'detailPage'])->name('admin.combine-operations.detail');
     });
 
     // Legacy offer routes (redirect to shops)

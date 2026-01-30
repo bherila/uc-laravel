@@ -122,7 +122,10 @@ function AdminAuditLogsPage() {
         </form>
       </div>
 
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-sm text-muted-foreground">
+          <a href="/admin/combine-operations" className="text-blue-600 hover:underline">View Combine Operations →</a>
+        </div>
         {data && (
             <SimplePagination 
                 currentPage={data.current_page} 

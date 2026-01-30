@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWrapper } from '@/fetchWrapper';
 import { format } from 'date-fns';
-import { ArrowLeft, Copy, CheckCircle, XCircle, AlertCircle, RefreshCw, FileJson } from 'lucide-react';
+import { ArrowLeft, Copy, CheckCircle, XCircle, AlertCircle, RefreshCw, FileJson, ExternalLink, Truck } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import Link from '@/components/link';
@@ -26,6 +26,28 @@ interface WebhookSub {
   time_taken_ms: number | null;
 }
 
+interface CombineOperationLog {
+  id: number;
+  event: string | null;
+  time_taken_ms: number | null;
+  shopify_request: string | null;
+  shopify_response: string | null;
+  created_at: string;
+}
+
+interface CombineOperation {
+  id: number;
+  order_id: string;
+  order_id_numeric: number | null;
+  status: string;
+  original_shipping_method: string | null;
+  fulfillment_orders_before: number | null;
+  fulfillment_orders_after: number | null;
+  error_message: string | null;
+  created_at: string;
+  logs: CombineOperationLog[];
+}
+
 interface Webhook {
   id: number;
   rerun_of_id: number | null;
@@ -39,6 +61,7 @@ interface Webhook {
   error_message: string | null;
   subs: WebhookSub[];
   rerun_of?: Webhook;
+  combine_operations?: CombineOperation[];
 }
 
 function AdminWebhookDetailPage() {
@@ -307,6 +330,67 @@ function AdminWebhookDetailPage() {
             </Table>
         </div>
       </div>
+
+      {/* Combine Operations Section */}
+      {webhook.combine_operations && webhook.combine_operations.length > 0 && (
+        <div className="space-y-4 mt-8">
+          <h3 className="font-semibold text-lg flex items-center">
+            <Truck className="w-5 h-5 mr-2" />
+            Combine Shipping Operations
+          </h3>
+          <div className="rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">ID</TableHead>
+                  <TableHead>Order</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Shipping Method</TableHead>
+                  <TableHead>Before/After</TableHead>
+                  <TableHead className="w-24">Details</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {webhook.combine_operations.map((op) => (
+                  <TableRow key={op.id}>
+                    <TableCell>{op.id}</TableCell>
+                    <TableCell className="text-xs">
+                      <a 
+                        href={`/admin/combine-operations/${op.id}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Order #{op.order_id_numeric}
+                      </a>
+                    </TableCell>
+                    <TableCell>
+                      {op.status === 'success' ? (
+                        <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" /> Success</Badge>
+                      ) : op.status === 'error' ? (
+                        <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Error</Badge>
+                      ) : (
+                        <Badge variant="secondary">{op.status}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>{op.original_shipping_method || '-'}</TableCell>
+                    <TableCell>
+                      {op.fulfillment_orders_before !== null && op.fulfillment_orders_after !== null ? (
+                        <span>{op.fulfillment_orders_before} → {op.fulfillment_orders_after}</span>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" asChild>
+                        <a href={`/admin/combine-operations/${op.id}`}>
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
     </Container>
   );
 }

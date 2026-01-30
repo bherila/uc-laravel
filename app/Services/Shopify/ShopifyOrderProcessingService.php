@@ -33,8 +33,17 @@ class ShopifyOrderProcessingService
         private ShopifyOrderService $orderService,
         private ShopifyOrderEditService $orderEditService,
         private ShopifyFulfillmentService $fulfillmentService,
-        private ShopifyProductService $productService
-    ) {}
+        private ShopifyProductService $productService,
+        private ?FulfillmentOrderService $fulfillmentOrderService = null
+    ) {
+        // Create default FulfillmentOrderService if not provided
+        if ($this->fulfillmentOrderService === null) {
+            $this->fulfillmentOrderService = new FulfillmentOrderService(
+                $this->fulfillmentService,
+                $this->orderService
+            );
+        }
+    }
 
     /**
      * Get the appropriate random function for the current database driver
@@ -252,27 +261,6 @@ class ShopifyOrderProcessingService
 
         // Now update the Shopify order with manifest items
         $this->syncOrderLineItems($orderIdUri, $shopifyOrder);
-    }
-
-    /**
-     * Manually trigger fulfillment order merging for a specific order.
-     * 
-     * @param string $orderId
-     */
-    public function combineFulfillmentOrders(string $orderId): void
-    {
-        $orderIdNumeric = $this->extractOrderIdNumeric($orderId);
-        $orderIdUri = "gid://shopify/Order/{$orderIdNumeric}";
-        $this->currentOrderIdNumeric = $orderIdNumeric;
-        
-        // Fetch order to get shipping line
-        $orders = $this->orderService->getOrdersWithLineItems([$orderIdUri]);
-        $shippingTitle = null;
-        if (!empty($orders)) {
-            $shippingTitle = $orders[0]['shippingLine']['title'] ?? null;
-        }
-
-        $this->tryMergeFulfillmentOrders($orderIdUri, $shippingTitle);
     }
 
     /**
@@ -530,88 +518,9 @@ class ShopifyOrderProcessingService
 
     private function tryMergeFulfillmentOrders(string $orderIdUri, ?string $orderShippingTitle = null): void
     {
-        try {
-            $fulfillmentOrders = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
-            $this->logSub("Found " . count($fulfillmentOrders) . " fulfillment orders");
-
-            if (count($fulfillmentOrders) >= 1) {
-                $openOrders = array_filter($fulfillmentOrders, fn($fo) => $fo['status'] === 'OPEN');
-
-                if (count($openOrders) >= 1) {
-                    $openOrders = array_values($openOrders);
-                    $firstOrder = $openOrders[0];
-                    $locationId = $firstOrder['assignedLocation']['location']['id'] ?? null;
-                    $fulfillAt = $firstOrder['fulfillAt'];
-
-                    $areMergeable = true;
-                    $specificNames = [];
-
-                    foreach ($openOrders as $fo) {
-                        if (($fo['assignedLocation']['location']['id'] ?? null) !== $locationId
-                            || $fo['fulfillAt'] !== $fulfillAt) {
-                            $areMergeable = false;
-                            break;
-                        }
-
-                        $name = $fo['deliveryMethod']['presentedName'] ?? '';
-                        
-                        // If name is generic "Shipping", try to resolve to order's shipping title
-                        if (($name === 'Shipping' || $name === '') && $orderShippingTitle) {
-                            $name = $orderShippingTitle;
-                        }
-
-                        if ($name !== 'Shipping' && $name !== '') {
-                            $specificNames[$name] = true;
-                        }
-                    }
-
-                    // Merge if they are at the same location/time and we don't have conflicting specific names
-                    // We also allow merging if they are all "Shipping" or generic (count($specificNames) == 0)
-                    // We also allow "merging" a single generic group to potentially trigger a name resolution
-                    if ($areMergeable && count($specificNames) <= 1) {
-                        if (count($openOrders) > 1) {
-                            $this->logSub('Fulfillment orders are mergeable. Merging now.');
-                        } else {
-                            $this->logSub('Attempting to resolve shipping method name for single fulfillment order.');
-                        }
-
-                        // Sort so non-shipping comes first (higher priority)
-                        usort($openOrders, function ($a, $b) use ($orderShippingTitle) {
-                            $aName = $a['deliveryMethod']['presentedName'] ?? '';
-                            $bName = $b['deliveryMethod']['presentedName'] ?? '';
-
-                            // Treat generic names as order shipping title for sorting priority if needed,
-                            // but generally we want "Real Specific" > "Resolved Specific (was Shipping)" > "Generic"
-                            // Actually, just pushing "Shipping" to the bottom is enough because:
-                            // 1. If we have "Real Specific", it will be top. "Shipping" (even if valid) will be bottom. Merge "Shipping" into "Real". Result "Real".
-                            // 2. If we have only "Shipping"s. Order is arbitrary. Result "Shipping".
-
-                            $aIsShipping = ($aName === 'Shipping' || $aName === '') ? 1 : 0;
-                            $bIsShipping = ($bName === 'Shipping' || $bName === '') ? 1 : 0;
-
-                            return $aIsShipping - $bIsShipping;
-                        });
-
-                        $mergeIntents = array_map(fn($fo) => [
-                            'fulfillmentOrderId' => $fo['id'],
-                            'fulfillmentOrderLineItems' => array_map(
-                                fn($li) => ['id' => $li['id'], 'quantity' => $li['totalQuantity']],
-                                $fo['lineItems']['nodes'] ?? []
-                            ),
-                        ], $openOrders);
-
-                        $mergeResult = $this->fulfillmentService->mergeFulfillmentOrders([
-                            ['mergeIntents' => $mergeIntents],
-                        ]);
-
-                        $this->logSub('Merge result: ' . json_encode($mergeResult));
-                    }
-                }
-            }
-        } catch (\Exception $e) {
-            Log::error("Fulfillment merge error for {$orderIdUri}: " . $e->getMessage());
-            $this->logSub('Fulfillment merge error: ' . $e->getMessage());
-        }
+        $this->logSub("Attempting to merge fulfillment orders");
+        $this->fulfillmentOrderService->tryQuickMerge($orderIdUri, $orderShippingTitle);
+        $this->logSub("Merge attempt completed");
     }
 
     private function extractOrderIdNumeric(string $orderId): ?int

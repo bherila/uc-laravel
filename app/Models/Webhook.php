@@ -33,4 +33,9 @@ class Webhook extends Model
     {
         return $this->belongsTo(Webhook::class, 'rerun_of_id');
     }
+
+    public function combineOperations(): HasMany
+    {
+        return $this->hasMany(CombineOperation::class);
+    }
 }

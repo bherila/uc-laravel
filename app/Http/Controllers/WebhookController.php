@@ -41,7 +41,7 @@ class WebhookController extends Controller
 
     public function get(int $id): JsonResponse
     {
-        $webhook = Webhook::with(['subs', 'rerunOf', 'shop'])
+        $webhook = Webhook::with(['subs', 'rerunOf', 'shop', 'combineOperations.logs'])
             ->findOrFail($id);
 
         return response()->json($webhook);

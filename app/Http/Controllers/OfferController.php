@@ -11,6 +11,7 @@ use App\Services\Shopify\ShopifyProductService;
 use App\Services\Shopify\ShopifyOrderService;
 use App\Services\Shopify\ShopifyOrderEditService;
 use App\Services\Shopify\ShopifyFulfillmentService;
+use App\Services\Shopify\FulfillmentOrderService;
 use App\Services\Shopify\ShopifyOrderProcessingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -271,25 +272,31 @@ class OfferController extends Controller
                 ? $orderId
                 : "gid://shopify/Order/{$orderId}";
 
-            // Create the order processing service for this shop
+            // Create the fulfillment order service for this shop
             $client = new ShopifyClient($shopModel);
             $orderService = new ShopifyOrderService($client);
-            $orderEditService = new ShopifyOrderEditService($client);
             $fulfillmentService = new ShopifyFulfillmentService($client);
-            $productService = new ShopifyProductService($client);
 
-            $orderProcessingService = new ShopifyOrderProcessingService(
-                $client,
-                $orderService,
-                $orderEditService,
+            $fulfillmentOrderService = new FulfillmentOrderService(
                 $fulfillmentService,
-                $productService
+                $orderService
             );
 
-            // Trigger merge
-            $orderProcessingService->combineFulfillmentOrders($orderIdUri);
+            // Trigger merge with logging
+            $combineOperation = $fulfillmentOrderService->combineFulfillmentOrders(
+                $orderIdUri,
+                $shop,
+                $request->user()->id
+            );
 
-            return response()->json(['message' => 'Shipping combination attempted']);
+            return response()->json([
+                'message' => 'Shipping combination completed',
+                'combine_operation_id' => $combineOperation->id,
+                'status' => $combineOperation->status,
+                'original_shipping_method' => $combineOperation->original_shipping_method,
+                'fulfillment_orders_before' => $combineOperation->fulfillment_orders_before,
+                'fulfillment_orders_after' => $combineOperation->fulfillment_orders_after,
+            ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }

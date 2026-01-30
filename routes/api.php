@@ -9,6 +9,7 @@ use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\ShopifyWebhookController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\CombineOperationController;
 use App\Http\Controllers\Auth\PasswordResetController;
 
 /*
@@ -75,6 +76,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     // Audit Logs
     Route::get('audit-logs', [AuditLogController::class, 'list']);
+
+    // Combine Operations
+    Route::get('combine-operations', [CombineOperationController::class, 'list']);
+    Route::get('combine-operations/{id}', [CombineOperationController::class, 'get']);
 
     // Order Operations
     Route::post('shops/{shop}/orders/{orderId}/repick', [OfferController::class, 'repickOrder']);

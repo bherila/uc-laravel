@@ -1,0 +1,9 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app/Services/Shopify
+    level: 5
+    ignoreErrors:
+        - '#Property .* is never read, only written.#'

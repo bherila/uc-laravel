@@ -177,6 +177,42 @@ CREATE TABLE IF NOT EXISTS "webhook_subs" (
 );
 CREATE INDEX IF NOT EXISTS "webhook_subs_webhook_id_foreign" ON "webhook_subs" ("webhook_id");
 
+-- Combine Operations Tables
+
+CREATE TABLE IF NOT EXISTS "combine_operations" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "audit_log_id" INTEGER,
+  "webhook_id" INTEGER,
+  "shop_id" INTEGER,
+  "order_id" TEXT NOT NULL,
+  "order_id_numeric" INTEGER,
+  "user_id" INTEGER,
+  "status" TEXT NOT NULL DEFAULT 'pending',
+  "error_message" TEXT,
+  "original_shipping_method" TEXT,
+  "fulfillment_orders_before" INTEGER,
+  "fulfillment_orders_after" INTEGER,
+  "created_at" TEXT,
+  "updated_at" TEXT
+);
+CREATE INDEX IF NOT EXISTS "combine_operations_order_id_index" ON "combine_operations" ("order_id");
+CREATE INDEX IF NOT EXISTS "combine_operations_shop_id_index" ON "combine_operations" ("shop_id");
+CREATE INDEX IF NOT EXISTS "combine_operations_audit_log_id_index" ON "combine_operations" ("audit_log_id");
+CREATE INDEX IF NOT EXISTS "combine_operations_webhook_id_index" ON "combine_operations" ("webhook_id");
+
+CREATE TABLE IF NOT EXISTS "combine_operation_logs" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "combine_operation_id" INTEGER NOT NULL,
+  "event" TEXT,
+  "time_taken_ms" INTEGER,
+  "shopify_request" TEXT,
+  "shopify_response" TEXT,
+  "shopify_response_code" INTEGER,
+  "created_at" TEXT,
+  "updated_at" TEXT,
+  FOREIGN KEY ("combine_operation_id") REFERENCES "combine_operations" ("id") ON DELETE CASCADE
+);
+
 -- Audit Log Table
 
 CREATE TABLE IF NOT EXISTS "v3_audit_log" (
@@ -466,5 +502,23 @@ CREATE TABLE IF NOT EXISTS "computed_buyer_varietals" (
   "total_paid" REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS "computed_buyer_varietals_cola_varietal" ON "computed_buyer_varietals" ("cola_varietal");
+
+-- Insert migration records to prevent RefreshDatabase from re-running migrations
+-- These must match the migration files in database/migrations
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_17_065914_update_users_table_for_laravel_auth', 1);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_17_071659_create_sessions_table', 1);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_17_073317_add_last_login_at_to_users_table', 2);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_17_080205_create_cache_table', 3);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_17_091808_create_shopify_shops_table', 4);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_17_091812_create_user_shop_accesses_table', 5);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_17_091816_remove_deprecated_user_fields_and_add_is_admin', 5);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_17_091820_add_shop_id_to_offers_table', 5);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_20_040740_create_jobs_table', 6);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_20_062828_create_webhooks_tables', 7);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_20_065704_add_time_taken_ms_to_webhook_subs_table', 8);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_20_080132_add_is_archived_to_v3_offer_table', 9);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_20_090000_add_topic_and_shop_id_to_webhooks_table', 10);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_30_051618_create_combine_operation_logs_table', 11);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_30_053444_add_webhook_id_to_combine_operations_table', 12);
 
 -- Note: RefreshDatabase trait handles migrations table automatically

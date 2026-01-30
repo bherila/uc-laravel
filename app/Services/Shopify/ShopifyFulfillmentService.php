@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Shopify;
 
 use App\Models\AuditLog;
+use App\Services\Shopify\Dto\FulfillmentOrderMergeInputDto;
 
 /**
  * Service for fulfillment order operations in Shopify
@@ -41,15 +42,17 @@ class ShopifyFulfillmentService
         GRAPHQL;
 
     private const GQL_FULFILLMENT_ORDER_MERGE = <<<'GRAPHQL'
-        mutation fulfillmentOrderMerge($mergeIntents: [FulfillmentOrderMergeInput!]!) {
-            fulfillmentOrderMerge(mergeIntents: $mergeIntents) {
+        mutation fulfillmentOrderMerge($fulfillmentOrderMergeInputs: [FulfillmentOrderMergeInput!]!) {
+            fulfillmentOrderMerge(fulfillmentOrderMergeInputs: $fulfillmentOrderMergeInputs) {
                 fulfillmentOrderMerges {
                     fulfillmentOrder {
                         id
                         status
                         assignedLocation {
-                            id
                             name
+                            location {
+                                id
+                            }
                         }
                     }
                 }
@@ -108,13 +111,13 @@ class ShopifyFulfillmentService
     /**
      * Merge fulfillment orders
      *
-     * @param array $inputs Array of merge inputs with fulfillmentOrderId and fulfillmentOrderLineItems
+     * @param array<FulfillmentOrderMergeInputDto> $inputs Array of merge inputs
      * @return array
      */
     public function mergeFulfillmentOrders(array $inputs): array
     {
         $response = $this->client->graphql(self::GQL_FULFILLMENT_ORDER_MERGE, [
-            'mergeIntents' => $inputs,
+            'fulfillmentOrderMergeInputs' => array_map(fn(FulfillmentOrderMergeInputDto $input) => $input->toArray(), $inputs),
         ]);
 
         $result = $response['fulfillmentOrderMerge'] ?? [];

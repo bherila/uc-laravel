@@ -89,6 +89,8 @@ All under [app/Models](app/Models):
 - `Offer` - Wine offers with Shopify variant linkage (shop-scoped)
 - `OfferManifest` - Individual bottle allocations to orders
 - `OrderToVariant` - Links Shopify orders to variants for webhook processing
+- `CombineOperation` - Tracks combine shipping operations with dual parent support (audit_log_id OR webhook_id)
+- `CombineOperationLog` - Detailed event logs for combine operations (like webhook_subs)
 
 ## Service Layer
 
@@ -102,7 +104,8 @@ All under [app/Models](app/Models):
 - `ShopifyOrderService` - Order queries, cancel, capture
 - `ShopifyOrderProcessingService` - Full order processing with manifest allocation, diversity check (retries up to 5x for variety), and force repick support
 - `ShopifyOrderEditService` - Order edit mutations (line items, discounts, shipping)
-- `ShopifyFulfillmentService` - Fulfillment order operations
+- `ShopifyFulfillmentService` - Fulfillment order operations (low-level GraphQL)
+- `FulfillmentOrderService` - High-level combine shipping operations with audit logging (moved from ShopifyOrderProcessingService)
 
 ## API Surface
 
@@ -140,7 +143,10 @@ Defined in [routes/api.php](routes/api.php):
 - `GET /api/admin/webhooks/{id}` - Get details
 - `POST /api/admin/webhooks/{id}/rerun` - Re-run webhook
 - `GET /api/admin/audit-logs` - List and search audit logs
+- `GET /api/admin/combine-operations` - List combine shipping operations
+- `GET /api/admin/combine-operations/{id}` - Get combine operation details with logs
 - `POST /api/admin/shops/{shop}/orders/{orderId}/repick` - Force repick all manifests for an order
+- `POST /api/admin/shops/{shop}/orders/{orderId}/combine-shipping` - Combine shipping (merge fulfillment orders)
 
 ## Frontend Patterns
 
@@ -190,6 +196,7 @@ Each page follows this pattern:
 - Labeled "Webhooks" in navbar (needs to be added).
 - Lists all incoming webhooks with status badges.
 - Detail page shows payload, headers, and execution logs (webhook_sub events).
+- Detail page also shows combine operations linked to the webhook (if any).
 - Re-run functionality creates a new webhook record linked to the original.
 
 ### Audit Log Management ([resources/js/admin-audit-logs.tsx](resources/js/admin-audit-logs.tsx))
@@ -197,6 +204,18 @@ Each page follows this pattern:
 - Paginated list of system events (event name, user ID, timestamp).
 - Searchable by event name, details, order ID, or offer ID.
 - Detailed view using `AuditLogDetailCell`: large JSON payloads are displayed in a modal dialog with copy-to-clipboard functionality to keep the table clean.
+- Links to Combine Operations page for viewing shipping merge operations.
+
+### Combine Operations ([resources/js/admin-combine-operations.tsx](resources/js/admin-combine-operations.tsx), [resources/js/admin-combine-operation-detail.tsx](resources/js/admin-combine-operation-detail.tsx))
+- Tracks combine shipping operations (fulfillment order merging).
+- Combine operations can be linked to either an audit log (manual admin trigger) or a webhook (webhook-triggered).
+- List page shows all combine operations with status, shop, user, and shipping method info.
+- Detail page displays:
+  - Summary: order link, shop, user, timestamps
+  - Original shipping method identified from order
+  - Fulfillment orders before/after count
+  - Event log with detailed steps and Shopify API call data
+- Each operation links back to audit log or webhook for complete traceability.
 
 ## Shopify Performance & Caching
 
@@ -236,6 +255,7 @@ The `ShopifyProductService` implements a robust caching strategy to minimize API
 - Highlights quantity mismatches
 - Links to Shopify order admin
 - Admin-only Repick button to force reassignment of all manifests for an order (disabled for cancelled/shipped orders with tooltip explanation)
+- Admin-only Combine button to merge fulfillment orders and apply the original shipping method selected by the customer (enabled when there are multiple open fulfillment orders or a single generic "Shipping" group)
 
 ## Authentication
 
