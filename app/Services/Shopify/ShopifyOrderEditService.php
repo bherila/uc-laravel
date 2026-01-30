@@ -29,6 +29,19 @@ class ShopifyOrderEditService
                             quantity
                         }
                     }
+                    shippingLines(first: 10) {
+                        nodes {
+                            id
+                            title
+                            price {
+                                shopMoney {
+                                    amount
+                                    currencyCode
+                                }
+                            }
+                            stagedStatus
+                        }
+                    }
                     totalPriceSet {
                         shopMoney {
                             amount
@@ -136,6 +149,20 @@ class ShopifyOrderEditService
         }
         GRAPHQL;
 
+    private const GQL_UPDATE_SHIPPING_LINE = <<<'GRAPHQL'
+        mutation orderEditUpdateShippingLine($id: ID!, $shippingLineId: ID!, $shippingLine: OrderEditUpdateShippingLineInput!) {
+            orderEditUpdateShippingLine(id: $id, shippingLineId: $shippingLineId, shippingLine: $shippingLine) {
+                calculatedOrder {
+                    id
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        GRAPHQL;
+
     public function __construct(
         private ShopifyClient $client
     ) {}
@@ -144,7 +171,7 @@ class ShopifyOrderEditService
      * Begin an order edit session
      *
      * @param string $orderId
-     * @return array{calculatedOrderId: string, totalPrice: string, editableLineItems: array}
+     * @return array{calculatedOrderId: string, totalPrice: string, editableLineItems: array, shippingLines: array}
      */
     public function beginEdit(string $orderId): array
     {
@@ -164,10 +191,21 @@ class ShopifyOrderEditService
             }
         }
 
+        $shippingLines = [];
+        foreach ($calculatedOrder['shippingLines']['nodes'] ?? [] as $line) {
+            $shippingLines[] = [
+                'id' => $line['id'],
+                'title' => $line['title'],
+                'price' => $line['price']['shopMoney'],
+                'stagedStatus' => $line['stagedStatus'],
+            ];
+        }
+
         return [
             'calculatedOrderId' => $calculatedOrder['id'] ?? '',
             'totalPrice' => $calculatedOrder['totalPriceSet']['shopMoney']['amount'] ?? '0',
             'editableLineItems' => $editableLineItems,
+            'shippingLines' => $shippingLines,
         ];
     }
 
@@ -277,6 +315,35 @@ class ShopifyOrderEditService
 
         if (!empty($result['userErrors'])) {
             throw new \RuntimeException('Failed to add shipping line: ' . json_encode($result['userErrors']));
+        }
+
+        return $result;
+    }
+
+    /**
+     * Update a shipping line in an order edit
+     *
+     * @param string $calculatedOrderId
+     * @param string $shippingLineId
+     * @param array{amount: string, currencyCode: string} $price
+     * @param string $title
+     * @return array
+     */
+    public function updateShippingLine(string $calculatedOrderId, string $shippingLineId, array $price, string $title): array
+    {
+        $response = $this->client->graphql(self::GQL_UPDATE_SHIPPING_LINE, [
+            'id' => $calculatedOrderId,
+            'shippingLineId' => $shippingLineId,
+            'shippingLine' => [
+                'price' => $price,
+                'title' => $title,
+            ],
+        ]);
+
+        $result = $response['orderEditUpdateShippingLine'] ?? [];
+
+        if (!empty($result['userErrors'])) {
+            throw new \RuntimeException('Failed to update shipping line: ' . json_encode($result['userErrors']));
         }
 
         return $result;

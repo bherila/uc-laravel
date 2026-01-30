@@ -75,6 +75,7 @@ class ShopifyOrderService
                     }
                     shippingLines(first: 10, includeRemovals: true) {
                         nodes {
+                            id
                             title
                             code
                             shippingRateHandle
@@ -136,6 +137,48 @@ class ShopifyOrderService
                             url
                         }
                     }
+                }
+            }
+        }
+        GRAPHQL;
+
+    private const GQL_ORDER_EDIT_BEGIN = <<<'GRAPHQL'
+        mutation orderEditBegin($id: ID!) {
+            orderEditBegin(id: $id) {
+                calculatedOrder {
+                    id
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        GRAPHQL;
+
+    private const GQL_ORDER_EDIT_UPDATE_SHIPPING_LINE = <<<'GRAPHQL'
+        mutation orderEditUpdateShippingLine($id: ID!, $shippingLineId: ID!, $shippingLine: OrderEditUpdateShippingLineInput!) {
+            orderEditUpdateShippingLine(id: $id, shippingLineId: $shippingLineId, shippingLine: $shippingLine) {
+                calculatedOrder {
+                    id
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        GRAPHQL;
+
+    private const GQL_ORDER_EDIT_COMMIT = <<<'GRAPHQL'
+        mutation orderEditCommit($id: ID!) {
+            orderEditCommit(id: $id) {
+                order {
+                    id
+                }
+                userErrors {
+                    field
+                    message
                 }
             }
         }
@@ -300,6 +343,7 @@ class ShopifyOrderService
                 'totalShippingPriceSet_shopMoney_amount' => (float)($node['totalShippingPriceSet']['shopMoney']['amount'] ?? 0),
                 'totalShippingPriceSet_shopMoney_currencyCode' => $node['totalShippingPriceSet']['shopMoney']['currencyCode'] ?? 'USD',
                 'shippingLine' => $shippingLine,
+                'shippingLines' => $node['shippingLines'] ?? [],
                 'lineItems_nodes' => $lineItems,
                 'transactions_nodes' => $transactions,
                 'fulfillmentOrders_nodes' => $fulfillmentOrders,
@@ -308,6 +352,105 @@ class ShopifyOrderService
         }
 
         return $orders;
+    }
+
+    public function beginEdit(string $orderId): ?string
+    {
+        $response = $this->client->graphql(self::GQL_ORDER_EDIT_BEGIN, ['id' => $orderId]);
+        $result = $response['orderEditBegin'] ?? [];
+
+        if (!empty($result['userErrors'])) {
+            throw new \RuntimeException('Order edit begin failed: ' . json_encode($result['userErrors']));
+        }
+
+        return $result['calculatedOrder']['id'] ?? null;
+    }
+
+    public function updateShippingLine(string $calculatedOrderId, string $shippingLineId, string $newTitle): void
+    {
+        $response = $this->client->graphql(self::GQL_ORDER_EDIT_UPDATE_SHIPPING_LINE, [
+            'id' => $calculatedOrderId,
+            'shippingLineId' => $shippingLineId,
+            'shippingLine' => ['title' => $newTitle],
+        ]);
+
+        $result = $response['orderEditUpdateShippingLine'] ?? [];
+
+        if (!empty($result['userErrors'])) {
+            throw new \RuntimeException('Order edit update shipping line failed: ' . json_encode($result['userErrors']));
+        }
+    }
+
+    public function commitEdit(string $calculatedOrderId): void
+    {
+        $response = $this->client->graphql(self::GQL_ORDER_EDIT_COMMIT, ['id' => $calculatedOrderId]);
+        $result = $response['orderEditCommit'] ?? [];
+
+        if (!empty($result['userErrors'])) {
+            throw new \RuntimeException('Order edit commit failed: ' . json_encode($result['userErrors']));
+        }
+    }
+
+    /**
+     * Identify the original shipping method from order and fulfillment order data.
+     * 
+     * @param array $orderData The order data from getOrdersWithLineItems
+     * @param array $fulfillmentOrders The fulfillment orders for this order
+     * @return array{title: string|null, id: string|null}
+     */
+    public function identifyOriginalShippingMethod(array $orderData, array $fulfillmentOrders): array
+    {
+        $shippingLines = $orderData['shippingLines']['nodes'] ?? [];
+        
+        // 1. Try to find a good name in shipping lines (removed first)
+        foreach ($shippingLines as $line) {
+            if (($line['isRemoved'] ?? false) === true) {
+                $title = $line['title'] ?? '';
+                if ($title !== '' && $title !== 'Shipping') {
+                    return ['title' => $title, 'id' => $line['id']];
+                }
+            }
+        }
+
+        // 2. Try to find a good name in existing fulfillment orders (even closed ones)
+        $bestNameFromFO = null;
+        foreach ($fulfillmentOrders as $fo) {
+            $name = $fo['deliveryMethod']['presentedName'] ?? '';
+            if ($name !== '' && $name !== 'Shipping') {
+                $bestNameFromFO = $name;
+                break;
+            }
+        }
+
+        if ($bestNameFromFO) {
+            // Try to find a shipping line that matches this name
+            foreach ($shippingLines as $line) {
+                if (($line['title'] ?? '') === $bestNameFromFO) {
+                    return ['title' => $bestNameFromFO, 'id' => $line['id']];
+                }
+            }
+            // If no exact match but we have a name, return it with the first shipping line ID as a target
+            if (!empty($shippingLines)) {
+                return ['title' => $bestNameFromFO, 'id' => $shippingLines[0]['id']];
+            }
+        }
+
+        // 3. Try active shipping lines
+        foreach ($shippingLines as $line) {
+            if (!($line['isRemoved'] ?? false)) {
+                $title = $line['title'] ?? '';
+                if ($title !== '' && $title !== 'Shipping') {
+                    return ['title' => $title, 'id' => $line['id']];
+                }
+            }
+        }
+
+        // Fallback to first shipping line
+        if (!empty($shippingLines)) {
+            return ['title' => $shippingLines[0]['title'] ?? null, 'id' => $shippingLines[0]['id'] ?? null];
+        }
+
+        return ['title' => null, 'id' => null];
     }
 
     private function log(mixed $data, string $eventName = 'shopifyOrder'): void

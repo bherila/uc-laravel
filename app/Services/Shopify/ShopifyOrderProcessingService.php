@@ -115,6 +115,12 @@ class ShopifyOrderProcessingService
 
         $shopifyOrder = $orders[0];
 
+        // Identify original shipping method name and ID upfront
+        $fulfillmentOrders = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
+        $shippingData = $this->orderService->identifyOriginalShippingMethod($shopifyOrder, $fulfillmentOrders);
+        $shopifyOrder['originalShippingTitle'] = $shippingData['title'] ?? ($shopifyOrder['shippingLine']['title'] ?? null);
+        $shopifyOrder['originalShippingLineId'] = $shippingData['id'] ?? ($shopifyOrder['shippingLine']['id'] ?? null);
+
         if ($shopifyOrder['cancelledAt'] !== null) {
             $this->logSub("Order {$orderIdUri} is cancelled, checking for assigned manifests and skipping further processing...");
 
@@ -390,24 +396,7 @@ class ShopifyOrderProcessingService
         $totalQty = $offerManifests->count();
         $this->logSub("Total manifests allocated: {$totalQty}");
 
-        // Begin order edit
-        $editResult = $this->orderEditService->beginEdit($orderIdUri);
-        $calculatedOrderId = $editResult['calculatedOrderId'];
-
-        if (!$calculatedOrderId) {
-            $this->logSub('CalculatedOrderId was null, aborting');
-            return;
-        }
-
-        $this->logSub("Opened CalculatedOrder {$calculatedOrderId}");
-
-        // Get existing manifest items in order
-        $preExistingManifests = array_filter(
-            $editResult['editableLineItems'],
-            fn($item) => in_array('manifest-item', $item['productTags'])
-        );
-
-        // Group manifests by variant
+        // Group allocated manifests by variant
         $manifestsByVariant = [];
         foreach ($offerManifests as $manifest) {
             $variantId = $manifest->mf_variant;
@@ -417,109 +406,194 @@ class ShopifyOrderProcessingService
             $manifestsByVariant[$variantId][] = $manifest;
         }
 
-        // Build actions
-        $actions = [];
+        // Get existing manifest items in order from shopifyOrder data
+        $preExistingManifests = array_filter(
+            $shopifyOrder['lineItems_nodes'],
+            fn($item) => in_array('manifest-item', $item['product_tags'])
+        );
+
+        // Build potential actions to see if we even need an edit
+        $actionsNeeded = false;
         $allVariantIds = array_unique(array_merge(
             array_keys($manifestsByVariant),
-            array_map(fn($item) => $item['variantId'], $preExistingManifests)
+            array_map(fn($item) => $item['variant_variant_graphql_id'], $preExistingManifests)
         ));
 
         foreach ($allVariantIds as $variantId) {
             $desiredQty = count($manifestsByVariant[$variantId] ?? []);
-            $existing = array_filter($preExistingManifests, fn($item) => $item['variantId'] === $variantId);
-            $combinedExistingQty = array_sum(array_map(fn($item) => $item['quantity'], $existing));
+            $existing = array_filter($preExistingManifests, fn($item) => $item['variant_variant_graphql_id'] === $variantId);
+            $combinedExistingQty = array_sum(array_map(fn($item) => $item['currentQuantity'], $existing));
 
-            if ($combinedExistingQty === $desiredQty) {
-                continue; // No change needed
-            }
-
-            if ($desiredQty === 0) {
-                foreach ($existing as $item) {
-                    $actions[] = [
-                        'updateLineItemId' => $item['calculatedLineItemId'],
-                        'qty' => 0,
-                        'variantId' => $variantId,
-                    ];
-                }
-            } elseif ($combinedExistingQty === 0) {
-                $actions[] = [
-                    'qty' => $desiredQty,
-                    'variantId' => $variantId,
-                ];
-            } else {
-                $existingArray = array_values($existing);
-                $actions[] = [
-                    'updateLineItemId' => $existingArray[0]['calculatedLineItemId'],
-                    'qty' => $desiredQty,
-                    'variantId' => $variantId,
-                ];
-
-                // Remove extra line items
-                for ($i = 1; $i < count($existingArray); $i++) {
-                    $actions[] = [
-                        'updateLineItemId' => $existingArray[$i]['calculatedLineItemId'],
-                        'qty' => 0,
-                        'variantId' => $variantId,
-                    ];
-                }
+            if ($combinedExistingQty !== $desiredQty) {
+                $actionsNeeded = true;
+                break;
             }
         }
 
-        $this->logSub('Calculated orderEdit actions: ' . json_encode($actions));
+        if ($actionsNeeded) {
+            // Begin order edit
+            $editResult = $this->orderEditService->beginEdit($orderIdUri);
+            $calculatedOrderId = $editResult['calculatedOrderId'];
 
-        if (count($actions) > 0) {
-            // Perform additions first to preserve shipping method
-            $additions = array_filter($actions, fn($a) => !isset($a['updateLineItemId']));
-            $modifications = array_filter($actions, fn($a) => isset($a['updateLineItemId']));
-            $executionActions = array_merge(array_values($additions), array_values($modifications));
+            if (!$calculatedOrderId) {
+                $this->logSub('CalculatedOrderId was null, aborting');
+                return;
+            }
 
-            foreach ($executionActions as $action) {
-                if (isset($action['updateLineItemId'])) {
-                    $this->orderEditService->setLineItemQuantity(
-                        $calculatedOrderId,
-                        $action['updateLineItemId'],
-                        $action['qty']
-                    );
-                    $this->logSub("Updated line item to qty {$action['qty']}");
+            $this->logSub("Opened CalculatedOrder {$calculatedOrderId}");
+
+            // Re-filter manifests from the live calculated order to get the correct IDs
+            $editableManifests = array_filter(
+                $editResult['editableLineItems'],
+                fn($item) => in_array('manifest-item', $item['productTags'])
+            );
+
+            $actions = [];
+            foreach ($allVariantIds as $variantId) {
+                $desiredQty = count($manifestsByVariant[$variantId] ?? []);
+                $existing = array_filter($editableManifests, fn($item) => $item['variantId'] === $variantId);
+                $combinedExistingQty = array_sum(array_map(fn($item) => $item['quantity'], $existing));
+
+                if ($combinedExistingQty === $desiredQty) {
+                    continue; // No change needed
+                }
+
+                if ($desiredQty === 0) {
+                    foreach ($existing as $item) {
+                        $actions[] = [
+                            'updateLineItemId' => $item['calculatedLineItemId'],
+                            'qty' => 0,
+                            'variantId' => $variantId,
+                        ];
+                    }
+                } elseif ($combinedExistingQty === 0) {
+                    $actions[] = [
+                        'qty' => $desiredQty,
+                        'variantId' => $variantId,
+                    ];
                 } else {
-                    $addResult = $this->orderEditService->addVariant(
-                        $calculatedOrderId,
-                        $action['variantId'],
-                        $action['qty']
-                    );
-                    $this->logSub("Added variant {$action['variantId']} with qty {$action['qty']}");
+                    $existingArray = array_values($existing);
+                    $actions[] = [
+                        'updateLineItemId' => $existingArray[0]['calculatedLineItemId'],
+                        'qty' => $desiredQty,
+                        'variantId' => $variantId,
+                    ];
 
-                    // Add 100% discount
-                    if (isset($addResult['calculatedLineItem']['id'])) {
-                        $this->orderEditService->addDiscount(
-                            $calculatedOrderId,
-                            $addResult['calculatedLineItem']['id'],
-                            [
-                                'percentValue' => 100,
-                                'description' => 'UPGRADED',
-                            ]
-                        );
-                        $this->logSub('Added 100% discount');
+                    // Remove extra line items
+                    for ($i = 1; $i < count($existingArray); $i++) {
+                        $actions[] = [
+                            'updateLineItemId' => $existingArray[$i]['calculatedLineItemId'],
+                            'qty' => 0,
+                            'variantId' => $variantId,
+                        ];
                     }
                 }
             }
 
-            // Commit the edit
-            $commitResult = $this->orderEditService->commit($calculatedOrderId);
-            $this->logSub('orderEditCommit: ' . json_encode($commitResult));
+            $this->logSub('Calculated orderEdit actions: ' . json_encode($actions));
 
-            // Try to merge fulfillment orders
-            $shippingTitle = $shopifyOrder['shippingLine']['title'] ?? null;
-            $this->tryMergeFulfillmentOrders($orderIdUri, $shippingTitle);
+            if (count($actions) > 0) {
+                // Perform additions first to preserve shipping method
+                $additions = array_filter($actions, fn($a) => !isset($a['updateLineItemId']));
+                $modifications = array_filter($actions, fn($a) => isset($a['updateLineItemId']));
+                $executionActions = array_merge(array_values($additions), array_values($modifications));
+
+                foreach ($executionActions as $action) {
+                    if (isset($action['updateLineItemId'])) {
+                        $this->orderEditService->setLineItemQuantity(
+                            $calculatedOrderId,
+                            $action['updateLineItemId'],
+                            $action['qty']
+                        );
+                        $this->logSub("Updated line item to qty {$action['qty']}");
+                    } else {
+                        $addResult = $this->orderEditService->addVariant(
+                            $calculatedOrderId,
+                            $action['variantId'],
+                            $action['qty']
+                        );
+                        $this->logSub("Added variant {$action['variantId']} with qty {$action['qty']}");
+
+                        // Add 100% discount
+                        if (isset($addResult['calculatedLineItem']['id'])) {
+                            $this->orderEditService->addDiscount(
+                                $calculatedOrderId,
+                                $addResult['calculatedLineItem']['id'],
+                                [
+                                    'percentValue' => 100,
+                                    'description' => 'UPGRADED',
+                                ]
+                            );
+                            $this->logSub('Added 100% discount');
+                        }
+                    }
+                }
+
+                // Ensure shipping method is preserved and no extra charges are added
+                $originalShippingTitle = $shopifyOrder['originalShippingTitle'] ?? null;
+                $originalShippingLineId = $shopifyOrder['originalShippingLineId'] ?? null;
+
+                if ($originalShippingTitle && $originalShippingTitle !== 'Shipping') {
+                    $stagedShippingLines = $editResult['shippingLines'] ?? [];
+                    $hasUnchangedLine = false;
+                    $genericAddedLine = null;
+
+                    foreach ($stagedShippingLines as $line) {
+                        if ($line['stagedStatus'] === 'UNCHANGED') {
+                            $hasUnchangedLine = true;
+                            break;
+                        }
+                        if ($line['stagedStatus'] === 'ADDED' && ($line['title'] === 'Shipping' || $line['title'] === '')) {
+                            $genericAddedLine = $line;
+                        }
+                    }
+
+                    if (!$hasUnchangedLine) {
+                        if ($genericAddedLine) {
+                            $this->logSub("Updating generic added shipping line to original method: {$originalShippingTitle}");
+                            try {
+                                $this->orderEditService->updateShippingLine(
+                                    $calculatedOrderId,
+                                    $genericAddedLine['id'],
+                                    ['amount' => '0.00', 'currencyCode' => $shopifyOrder['totalShippingPriceSet_shopMoney_currencyCode']],
+                                    $originalShippingTitle
+                                );
+                            } catch (\Exception $e) {
+                                $this->logSub("Failed to update shipping line: " . $e->getMessage());
+                            }
+                        } elseif ($originalShippingLineId) {
+                            $this->logSub("No suitable shipping line found, adding original method: {$originalShippingTitle}");
+                            try {
+                                $this->orderEditService->addShippingLine(
+                                    $calculatedOrderId,
+                                    ['amount' => '0.00', 'currencyCode' => $shopifyOrder['totalShippingPriceSet_shopMoney_currencyCode']],
+                                    $originalShippingTitle
+                                );
+                            } catch (\Exception $e) {
+                                $this->logSub("Failed to add shipping line: " . $e->getMessage());
+                            }
+                        }
+                    }
+                }
+
+                // Commit the edit
+                $commitResult = $this->orderEditService->commit($calculatedOrderId);
+                $this->logSub('orderEditCommit: ' . json_encode($commitResult));
+            }
         } else {
-            $this->logSub('SKIP orderEditCommit - Nothing to do');
+            $this->logSub('SKIP orderEdit - No manifest changes needed');
         }
+
+        // Try to merge fulfillment orders - always do this, and pass the shipping line info
+        $shippingTitle = $shopifyOrder['originalShippingTitle'] ?? null;
+        $shippingLineId = $shopifyOrder['originalShippingLineId'] ?? null;
+        $this->tryMergeFulfillmentOrders($orderIdUri, $shippingTitle, $shippingLineId);
     }
 
-    private function tryMergeFulfillmentOrders(string $orderIdUri, ?string $orderShippingTitle = null): void
+    private function tryMergeFulfillmentOrders(string $orderIdUri, ?string $orderShippingTitle = null, ?string $orderShippingLineId = null): void
     {
         $this->logSub("Attempting to merge fulfillment orders");
-        $this->fulfillmentOrderService->tryQuickMerge($orderIdUri, $orderShippingTitle);
+        $this->fulfillmentOrderService->tryQuickMerge($orderIdUri, $orderShippingTitle, $orderShippingLineId);
         $this->logSub("Merge attempt completed");
     }
 
