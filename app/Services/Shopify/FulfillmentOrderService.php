@@ -126,15 +126,23 @@ class FulfillmentOrderService
      */
     private function executeCombineOperation(string $orderIdUri, CombineOperation $combineOperation): void
     {
-        // Fetch order to get original shipping line (not generic "Shipping")
+        // Fetch order to get original shipping line
         $orders = $this->orderService->getOrdersWithLineItems([$orderIdUri]);
+
+        // Get fulfillment orders
+        $fulfillmentOrdersBefore = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
+        $combineOperation->update([
+            'fulfillment_orders_before' => count($fulfillmentOrdersBefore),
+        ]);
 
         $this->logCombine($combineOperation, 'Fetched order data from Shopify', [
             'found' => !empty($orders),
-            'shipping_lines_count' => isset($orders[0]) ? count($orders[0]['shippingLine'] ?? []) : 0,
+            'shipping_lines_count' => isset($orders[0]['shippingLines']['nodes']) ? count($orders[0]['shippingLines']['nodes']) : 0,
         ]);
 
-        $originalShippingTitle = $this->identifyOriginalShippingMethod($orders);
+        $shippingData = $this->orderService->identifyOriginalShippingMethod($orders[0] ?? [], $fulfillmentOrdersBefore);
+        $originalShippingTitle = $shippingData['title'] ?? null;
+        $originalShippingLineId = $shippingData['id'] ?? null;
 
         $combineOperation->update([
             'original_shipping_method' => $originalShippingTitle,
@@ -142,12 +150,7 @@ class FulfillmentOrderService
 
         $this->logCombine($combineOperation, 'Identified original shipping method', [
             'original_shipping_method' => $originalShippingTitle,
-        ]);
-
-        // Get fulfillment orders before merge
-        $fulfillmentOrdersBefore = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
-        $combineOperation->update([
-            'fulfillment_orders_before' => count($fulfillmentOrdersBefore),
+            'shipping_line_id' => $originalShippingLineId,
         ]);
 
         $this->logCombine($combineOperation, 'Fetched fulfillment orders before merge', [
@@ -160,7 +163,7 @@ class FulfillmentOrderService
         ]);
 
         // Perform the merge with the original shipping title
-        $this->tryMergeFulfillmentOrders($orderIdUri, $originalShippingTitle, $combineOperation);
+        $this->tryMergeFulfillmentOrders($orderIdUri, $originalShippingTitle, $originalShippingLineId, $combineOperation);
 
         // Get fulfillment orders after merge
         $fulfillmentOrdersAfter = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
@@ -180,35 +183,12 @@ class FulfillmentOrderService
     }
 
     /**
-     * Identify the original shipping method from order data.
-     * 
-     * Looks for a non-generic shipping line title, prioritizing removed lines
-     * which often contain the original customer-selected method.
-     */
-    private function identifyOriginalShippingMethod(array $orders): ?string
-    {
-        if (empty($orders)) {
-            return null;
-        }
-
-        $shippingLine = $orders[0]['shippingLine'] ?? null;
-        if ($shippingLine) {
-            $title = $shippingLine['title'] ?? '';
-            // Only use if it's not the generic "Shipping"
-            if ($title !== '' && $title !== 'Shipping') {
-                return $title;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Try to merge fulfillment orders with detailed logging.
      */
     private function tryMergeFulfillmentOrders(
         string $orderIdUri,
         ?string $orderShippingTitle,
+        ?string $orderShippingLineId,
         CombineOperation $combineOperation
     ): void {
         $fulfillmentOrders = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
@@ -224,15 +204,46 @@ class FulfillmentOrderService
 
         $openOrders = array_values(array_filter(
             $fulfillmentOrders,
-            fn($fo) => $fo['status'] === 'OPEN'
+            function ($fo) {
+                if ($fo['status'] !== 'OPEN') {
+                    return false;
+                }
+                // Only include if there's at least one item with quantity > 0
+                foreach ($fo['lineItems']['nodes'] ?? [] as $li) {
+                    if ((int)$li['totalQuantity'] > 0) {
+                        return true;
+                    }
+                }
+                return false;
+            }
         ));
 
-        $this->logCombine($combineOperation, 'Filtered to OPEN fulfillment orders', [
+        $this->logCombine($combineOperation, 'Filtered to OPEN fulfillment orders with items', [
             'count' => count($openOrders),
         ]);
 
-        if (count($openOrders) < 1) {
-            $this->logCombine($combineOperation, 'No OPEN fulfillment orders to merge');
+        if (count($openOrders) < 2) {
+            $this->logCombine($combineOperation, 'Fewer than 2 OPEN fulfillment orders with items, nothing to merge');
+
+            // If we have a singular OPEN order with a generic name, and a better name from the order's shipping lines,
+            // we should rename the shipping line on the order which often updates the fulfillment order name.
+            if (count($openOrders) === 1 && $orderShippingTitle && $orderShippingLineId) {
+                $fo = $openOrders[0];
+                $currentName = $fo['deliveryMethod']['presentedName'] ?? '';
+                if (($currentName === 'Shipping' || $currentName === '') && $orderShippingTitle !== 'Shipping') {
+                    $this->logCombine($combineOperation, "Attempting to rename singular OPEN fulfillment order to match original shipping method: {$orderShippingTitle}");
+                    try {
+                        $calcId = $this->orderService->beginEdit($orderIdUri);
+                        if ($calcId) {
+                            $this->orderService->updateShippingLine($calcId, $orderShippingLineId, $orderShippingTitle);
+                            $this->orderService->commitEdit($calcId);
+                            $this->logCombine($combineOperation, "Successfully renamed fulfillment order via order edit");
+                        }
+                    } catch (\Exception $e) {
+                        $this->logCombine($combineOperation, "Failed to rename fulfillment order: " . $e->getMessage());
+                    }
+                }
+            }
             return;
         }
 
@@ -356,16 +367,23 @@ class FulfillmentOrderService
      */
     private function buildMergeIntents(array $openOrders): array
     {
-        return array_map(fn($fo) => new FulfillmentOrderMergeInputMergeIntent(
-            fulfillmentOrderId: $fo['id'],
-            fulfillmentOrderLineItems: array_map(
-                fn($li) => new FulfillmentOrderLineItemInput(
-                    id: $li['id'],
-                    quantity: (int)$li['totalQuantity']
+        return array_map(function ($fo) {
+            $lineItems = array_filter(
+                $fo['lineItems']['nodes'] ?? [],
+                fn($li) => (int)$li['totalQuantity'] > 0
+            );
+
+            return new FulfillmentOrderMergeInputMergeIntent(
+                fulfillmentOrderId: $fo['id'],
+                fulfillmentOrderLineItems: array_map(
+                    fn($li) => new FulfillmentOrderLineItemInput(
+                        id: $li['id'],
+                        quantity: (int)$li['totalQuantity']
+                    ),
+                    array_values($lineItems)
                 ),
-                $fo['lineItems']['nodes'] ?? []
-            ),
-        ), $openOrders);
+            );
+        }, $openOrders);
     }
 
     /**
@@ -397,7 +415,7 @@ class FulfillmentOrderService
      * This is called during order processing and does not create a CombineOperation record.
      * It's a quick merge attempt without detailed logging.
      */
-    public function tryQuickMerge(string $orderIdUri, ?string $orderShippingTitle = null): void
+    public function tryQuickMerge(string $orderIdUri, ?string $orderShippingTitle = null, ?string $orderShippingLineId = null): void
     {
         try {
             $fulfillmentOrders = $this->fulfillmentService->getFulfillmentOrders($orderIdUri);
@@ -406,12 +424,46 @@ class FulfillmentOrderService
                 return;
             }
 
+            // If shipping info is generic or missing, try to find better info
+            if (!$orderShippingTitle || $orderShippingTitle === 'Shipping') {
+                $orders = $this->orderService->getOrdersWithLineItems([$orderIdUri]);
+                $shippingData = $this->orderService->identifyOriginalShippingMethod($orders[0] ?? [], $fulfillmentOrders);
+                $orderShippingTitle = $shippingData['title'] ?? $orderShippingTitle;
+                $orderShippingLineId = $shippingData['id'] ?? $orderShippingLineId;
+            }
+
             $openOrders = array_values(array_filter(
                 $fulfillmentOrders,
-                fn($fo) => $fo['status'] === 'OPEN'
+                function ($fo) {
+                    if ($fo['status'] !== 'OPEN') {
+                        return false;
+                    }
+                    foreach ($fo['lineItems']['nodes'] ?? [] as $li) {
+                        if ((int)$li['totalQuantity'] > 0) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
             ));
 
-            if (count($openOrders) < 1) {
+            if (count($openOrders) === 1 && $orderShippingTitle && $orderShippingLineId) {
+                $fo = $openOrders[0];
+                $currentName = $fo['deliveryMethod']['presentedName'] ?? '';
+                if (($currentName === 'Shipping' || $currentName === '') && $orderShippingTitle !== 'Shipping') {
+                    try {
+                        $calcId = $this->orderService->beginEdit($orderIdUri);
+                        if ($calcId) {
+                            $this->orderService->updateShippingLine($calcId, $orderShippingLineId, $orderShippingTitle);
+                            $this->orderService->commitEdit($calcId);
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("Failed to quick rename fulfillment order: " . $e->getMessage());
+                    }
+                }
+            }
+
+            if (count($openOrders) < 2) {
                 return;
             }
 
