@@ -78,7 +78,7 @@ class ShopifyClient
     protected function client(): PendingRequest
     {
         $this->ensureConfigured();
-        
+
         return Http::baseUrl("https://{$this->shopDomain}/admin/api/{$this->apiVersion}")
             ->withHeaders([
                 'X-Shopify-Access-Token' => $this->accessToken,
@@ -104,12 +104,14 @@ class ShopifyClient
             }
         }
 
-        $startTime = (int)(microtime(true) * 1000);
-        $response = $this->client()->post('/graphql.json', [
-            'query' => $query,
-            'variables' => $variables,
-        ]);
-        $elapsed = (int)(microtime(true) * 1000) - $startTime;
+        $startTime = (int) (microtime(true) * 1000);
+        $payload = ['query' => $query];
+        if (!empty($variables)) {
+            $payload['variables'] = $variables;
+        }
+
+        $response = $this->client()->post('/graphql.json', $payload);
+        $elapsed = (int) (microtime(true) * 1000) - $startTime;
 
         if ($this->webhookId) {
             try {
@@ -169,14 +171,14 @@ class ShopifyClient
         foreach ($batches as $batch) {
             $currentVariables = $variables;
             $currentVariables[$idsKey] = $batch;
-            
+
             // Call graphql recursively (it will skip batching logic since count is <= 250)
             $result = $this->graphql($query, $currentVariables);
-            
+
             if (isset($result['nodes']) && is_array($result['nodes'])) {
                 $mergedNodes = array_merge($mergedNodes, $result['nodes']);
             }
-            
+
             $lastResult = $result;
         }
 
