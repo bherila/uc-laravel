@@ -368,14 +368,6 @@ class ShopifyOrderProcessingService
 
         $this->logSub("Reverted {$rowsReverted} rows due to insufficient allocation");
 
-        // Cancel order
-        $this->logSub("Attempting to cancel order {$orderIdUri}");
-        try {
-            $this->orderService->cancelOrder($orderIdUri);
-        } catch (\Exception $e) {
-            $this->logSub("Cancel error: " . $e->getMessage());
-        }
-
         // Set variant quantity to 0
         try {
             $this->productService->setVariantQuantity($purchasedDealVariantUri, 0);
