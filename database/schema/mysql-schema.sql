@@ -714,6 +714,12 @@ CREATE TABLE `webhook_subs` (
   `shopify_response_code` int(11) DEFAULT NULL,
   `offer_id` bigint(20) unsigned DEFAULT NULL,
   `order_id` bigint(20) unsigned DEFAULT NULL,
+  `requested_query_cost` int(11) DEFAULT NULL,
+  `actual_query_cost` int(11) DEFAULT NULL,
+  `throttle_max` int(11) DEFAULT NULL,
+  `throttle_current` int(11) DEFAULT NULL,
+  `throttle_restore_rate` int(11) DEFAULT NULL,
+  `current_time_ms` bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `webhook_subs_webhook_id_foreign` (`webhook_id`),
   CONSTRAINT `webhook_subs_webhook_id_foreign` FOREIGN KEY (`webhook_id`) REFERENCES `webhooks` (`id`) ON DELETE CASCADE
@@ -770,3 +776,4 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (15,'2026_01_30_051
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (16,'2026_01_30_053444_add_webhook_id_to_combine_operations_table',12);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (17,'2026_02_01_184209_add_webhook_id_to_v3_offer_manifest_table',13);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (18,'2026_02_01_184210_add_is_force_repick_to_webhooks_table',13);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (19,'2026_02_01_192823_add_cost_and_throttle_to_webhook_subs_table',14);

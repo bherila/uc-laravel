@@ -111,7 +111,12 @@ class ShopifyClient
         }
 
         $response = $this->client()->post('/graphql.json', $payload);
+        $data = $response->json();
+        $extensions = $data['extensions'] ?? [];
+        $cost = $extensions['cost'] ?? [];
+        $throttle = $cost['throttleStatus'] ?? [];
         $elapsed = (int) (microtime(true) * 1000) - $startTime;
+        $currentTimeMs = (int) (microtime(true) * 1000);
 
         if ($this->webhookId) {
             try {
@@ -122,6 +127,12 @@ class ShopifyClient
                     'shopify_request' => json_encode(['query' => $query, 'variables' => $variables]),
                     'shopify_response' => $response->body(),
                     'shopify_response_code' => $response->status(),
+                    'requested_query_cost' => $cost['requestedQueryCost'] ?? null,
+                    'actual_query_cost' => $cost['actualQueryCost'] ?? null,
+                    'throttle_max' => $throttle['maximumAvailable'] ?? null,
+                    'throttle_current' => $throttle['currentlyAvailable'] ?? null,
+                    'throttle_restore_rate' => $throttle['restoreRate'] ?? null,
+                    'current_time_ms' => $currentTimeMs,
                 ]);
             } catch (\Exception $e) {
                 // Ignore logging errors to avoid breaking the flow
@@ -141,8 +152,6 @@ class ShopifyClient
         if (!$response->successful()) {
             throw new \RuntimeException('Shopify GraphQL request failed: ' . $response->body());
         }
-
-        $data = $response->json();
 
         if (isset($data['errors']) && !empty($data['errors'])) {
             // Check for batch-related errors if we somehow missed them proactively
