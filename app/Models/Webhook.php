@@ -13,6 +13,7 @@ class Webhook extends Model
     protected $casts = [
         'valid_hmac' => 'boolean',
         'valid_shop_matched' => 'boolean',
+        'is_force_repick' => 'boolean',
         'error_ts' => 'datetime',
         'success_ts' => 'datetime',
         'payload' => 'array', // Convenient casting if payload is JSON
@@ -37,5 +38,10 @@ class Webhook extends Model
     public function combineOperations(): HasMany
     {
         return $this->hasMany(CombineOperation::class);
+    }
+
+    public function manifests(): HasMany
+    {
+        return $this->hasMany(OfferManifest::class, 'webhook_id');
     }
 }

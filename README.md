@@ -10,9 +10,9 @@ A multi-tenant Laravel-based web application for managing Underground Cellar win
 - **Offer Management**: Create and manage wine offers with Shopify product integration and manifest tracking (offered vs allocated)
 - **Manifest Allocation**: Add wine bottles to offers and track allocation to orders
 - **Order Processing**: Automatic order manifest allocation via Shopify webhooks with diversity check (retries up to 5 times to ensure variety in bottle selection)
-- **Order Repick**: Admin-only feature to force reassignment of all manifests for an order from remaining inventory
+- **Order Repick**: Admin-only feature to force reassignment of all manifests for an order from remaining inventory (creates trackable webhook record)
 - **Combine Shipping**: Admin-only feature to merge multiple fulfillment orders and restore the original shipping method selected by the customer
-- **Webhook Management**: Log, view, and re-run incoming Shopify webhooks with full payload inspection
+- **Webhook Management**: Log, view, and re-run incoming Shopify webhooks with full payload inspection; includes force repick tracking
 - **Audit Log Management**: View and search system event logs with detailed payload inspection
 - **Combine Operations Log**: Track and inspect combine shipping operations with detailed event logs
 - **Profitability Analysis**: Calculate margins, break-even scenarios, and sell-through projections
@@ -245,7 +245,7 @@ resources/js/
 - `GET /api/admin/webhooks/{id}` - Get webhook details
 - `POST /api/admin/webhooks/{id}/rerun` - Re-run webhook
 - `GET /api/admin/audit-logs` - List and search audit logs
-- `POST /api/admin/shops/{shop}/orders/{orderId}/repick` - Force repick all manifests for an order
+- `POST /api/admin/shops/{shop}/orders/{orderId}/repick` - Force repick all manifests for an order (creates webhook with `is_force_repick=true`)
 
 ## Web Routes
 
@@ -291,6 +291,15 @@ Configure a webhook in Shopify Admin for each store:
 - **Format**: JSON
 
 The webhook handler identifies the store using the `X-Shopify-Shop-Domain` header and verifies the HMAC signature using the store-specific webhook secret.
+
+### Force Repick Tracking
+
+Admin-initiated force repick operations create synthetic webhook records with:
+- `shopify_topic` = `admin/force_repick`
+- `is_force_repick` = `true`
+- Payload containing order ID and initiating user ID
+
+These appear in the Webhooks page for full traceability. Additionally, all manifests track which webhook allocated them via the `webhook_id` foreign key.
 
 ## Authentication & Authorization
 

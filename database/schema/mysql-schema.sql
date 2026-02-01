@@ -661,8 +661,10 @@ CREATE TABLE `v3_offer_manifest` (
   `mf_variant` varchar(50) NOT NULL,
   `assignee_id` varchar(50) DEFAULT NULL,
   `assignment_ordering` float NOT NULL,
+  `webhook_id` bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY (`m_id`),
-  KEY `manifest_v2_offer_id_assign_order_index` (`offer_id`,`assignment_ordering`)
+  KEY `manifest_v2_offer_id_assign_order_index` (`offer_id`,`assignment_ordering`),
+  KEY `v3_offer_manifest_webhook_id_index` (`webhook_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `v3_offer_manifest_exp`;
@@ -729,6 +731,7 @@ CREATE TABLE `webhooks` (
   `headers` text DEFAULT NULL,
   `shopify_topic` varchar(255) DEFAULT NULL,
   `shop_id` bigint(20) unsigned DEFAULT NULL,
+  `is_force_repick` tinyint(1) NOT NULL DEFAULT 0,
   `valid_hmac` tinyint(1) DEFAULT NULL,
   `valid_shop_matched` tinyint(1) DEFAULT NULL,
   `error_ts` timestamp NULL DEFAULT NULL,
@@ -765,3 +768,5 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (13,'2026_01_20_080
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (14,'2026_01_20_090000_add_topic_and_shop_id_to_webhooks_table',10);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (15,'2026_01_30_051618_create_combine_operation_logs_table',11);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (16,'2026_01_30_053444_add_webhook_id_to_combine_operations_table',12);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (17,'2026_02_01_184209_add_webhook_id_to_v3_offer_manifest_table',13);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (18,'2026_02_01_184210_add_is_force_repick_to_webhooks_table',13);

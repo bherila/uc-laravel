@@ -15,10 +15,16 @@ class OfferManifest extends Model
     protected $casts = [
         'offer_id' => 'integer',
         'assignment_ordering' => 'float',
+        'webhook_id' => 'integer',
     ];
 
     public function offer()
     {
         return $this->belongsTo(Offer::class, 'offer_id', 'offer_id');
+    }
+
+    public function webhook()
+    {
+        return $this->belongsTo(Webhook::class, 'webhook_id');
     }
 }

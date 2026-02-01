@@ -124,9 +124,11 @@ CREATE TABLE IF NOT EXISTS "v3_offer_manifest" (
   "offer_id" INTEGER NOT NULL,
   "mf_variant" TEXT NOT NULL,
   "assignee_id" TEXT,
-  "assignment_ordering" REAL NOT NULL
+  "assignment_ordering" REAL NOT NULL,
+  "webhook_id" INTEGER
 );
 CREATE INDEX IF NOT EXISTS "manifest_v2_offer_id_assign_order_index" ON "v3_offer_manifest" ("offer_id", "assignment_ordering");
+CREATE INDEX IF NOT EXISTS "v3_offer_manifest_webhook_id_index" ON "v3_offer_manifest" ("webhook_id");
 
 CREATE TABLE IF NOT EXISTS "v3_order_to_variant" (
   "order_id" TEXT NOT NULL,
@@ -151,6 +153,7 @@ CREATE TABLE IF NOT EXISTS "webhooks" (
   "headers" TEXT,
   "shopify_topic" TEXT,
   "shop_id" INTEGER,
+  "is_force_repick" INTEGER NOT NULL DEFAULT 0,
   "valid_hmac" INTEGER,
   "valid_shop_matched" INTEGER,
   "error_ts" TEXT,
@@ -520,5 +523,7 @@ INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_20_080132_add_i
 INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_20_090000_add_topic_and_shop_id_to_webhooks_table', 10);
 INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_30_051618_create_combine_operation_logs_table', 11);
 INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_01_30_053444_add_webhook_id_to_combine_operations_table', 12);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_02_01_184209_add_webhook_id_to_v3_offer_manifest_table', 13);
+INSERT INTO "migrations" ("migration", "batch") VALUES ('2026_02_01_184210_add_is_force_repick_to_webhooks_table', 13);
 
 -- Note: RefreshDatabase trait handles migrations table automatically

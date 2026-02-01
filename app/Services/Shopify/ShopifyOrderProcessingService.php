@@ -68,7 +68,7 @@ class ShopifyOrderProcessingService
         $this->forceRepick = $forceRepick;
         $this->forceRepickUserId = $forceRepickUserId;
         $this->client->setWebhookId($webhookId);
-        
+
         $orderIdNumeric = $this->extractOrderIdNumeric($orderId);
         $orderIdUri = "gid://shopify/Order/{$orderIdNumeric}";
 
@@ -88,7 +88,7 @@ class ShopifyOrderProcessingService
             ['locked_at' => $now]
         );
 
-        $this->startTime = (int)(microtime(true) * 1000);
+        $this->startTime = (int) (microtime(true) * 1000);
 
         try {
             $this->processOrderInternal($orderId);
@@ -97,7 +97,7 @@ class ShopifyOrderProcessingService
             OrderLock::where('order_id', $orderIdUri)->delete();
         }
 
-        $elapsed = (int)(microtime(true) * 1000) - $this->startTime;
+        $elapsed = (int) (microtime(true) * 1000) - $this->startTime;
         $this->logSub("Order processing done in {$elapsed}ms");
     }
 
@@ -201,7 +201,7 @@ class ShopifyOrderProcessingService
             // Handle force repick: unassign all manifests and reassign from scratch
             if ($this->forceRepick && $alreadyHaveQty > 0 && $shopifyOrder['cancelledAt'] === null) {
                 $this->logSub("Force repick requested - unassigning all {$alreadyHaveQty} bottles");
-                
+
                 $rowsReverted = OfferManifest::where('assignee_id', $orderIdUri)
                     ->where('offer_id', $this->currentOfferId)
                     ->update(['assignee_id' => null]);
@@ -278,8 +278,8 @@ class ShopifyOrderProcessingService
         for ($attempt = 1; $attempt <= self::MAX_DIVERSITY_RETRIES; $attempt++) {
             // Allocate bottles
             $rowsAffected = DB::update(
-                "UPDATE v3_offer_manifest SET assignee_id = ? WHERE offer_id = ? AND assignee_id IS NULL ORDER BY assignment_ordering LIMIT ?",
-                [$orderIdUri, $this->currentOfferId, $needQty]
+                "UPDATE v3_offer_manifest SET assignee_id = ?, webhook_id = ? WHERE offer_id = ? AND assignee_id IS NULL ORDER BY assignment_ordering LIMIT ?",
+                [$orderIdUri, $this->webhookId, $this->currentOfferId, $needQty]
             );
 
             if ($rowsAffected < $needQty) {
@@ -309,7 +309,7 @@ class ShopifyOrderProcessingService
                 ->pluck('mf_variant')
                 ->toArray();
 
-            $varietyInUnassigned = count($unassignedVariants) > 0 && 
+            $varietyInUnassigned = count($unassignedVariants) > 0 &&
                 (count($unassignedVariants) > 1 || $unassignedVariants[0] !== $assignedVariants[0]);
 
             if (!$varietyInUnassigned) {
@@ -347,11 +347,11 @@ class ShopifyOrderProcessingService
 
         // After max retries, proceed with whatever we have
         $this->logSub("Max diversity retries reached, proceeding with current allocation");
-        
+
         // Do one final allocation
         DB::update(
-            "UPDATE v3_offer_manifest SET assignee_id = ? WHERE offer_id = ? AND assignee_id IS NULL ORDER BY assignment_ordering LIMIT ?",
-            [$orderIdUri, $this->currentOfferId, $needQty]
+            "UPDATE v3_offer_manifest SET assignee_id = ?, webhook_id = ? WHERE offer_id = ? AND assignee_id IS NULL ORDER BY assignment_ordering LIMIT ?",
+            [$orderIdUri, $this->webhookId, $this->currentOfferId, $needQty]
         );
     }
 
@@ -592,7 +592,7 @@ class ShopifyOrderProcessingService
     private function extractOrderIdNumeric(string $orderId): ?int
     {
         $numeric = str_replace('gid://shopify/Order/', '', $orderId);
-        return is_numeric($numeric) ? (int)$numeric : null;
+        return is_numeric($numeric) ? (int) $numeric : null;
     }
 
     private function logSub(string $message): void
@@ -601,10 +601,10 @@ class ShopifyOrderProcessingService
             $offerId = $this->currentOfferId;
             // Ensure numeric just in case, though it is typed int
             if ($offerId && !is_numeric($offerId)) {
-                 $offerId = (int)filter_var((string)$offerId, FILTER_SANITIZE_NUMBER_INT);
+                $offerId = (int) filter_var((string) $offerId, FILTER_SANITIZE_NUMBER_INT);
             }
 
-            $timeTaken = isset($this->startTime) ? (int)(microtime(true) * 1000) - $this->startTime : 0;
+            $timeTaken = isset($this->startTime) ? (int) (microtime(true) * 1000) - $this->startTime : 0;
 
             WebhookSub::create([
                 'webhook_id' => $this->webhookId,

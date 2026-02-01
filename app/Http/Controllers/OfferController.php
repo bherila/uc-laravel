@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\ShopifyShop;
+use App\Models\Webhook;
 use App\Services\Offer\OfferService;
 use App\Services\Shopify\ShopifyClient;
 use App\Services\Shopify\ShopifyProductService;
@@ -33,12 +34,12 @@ class OfferController extends Controller
     {
         $shop = $this->getShop($request);
         $client = new ShopifyClient($shop);
-        
+
         // Register services in the container for this request scope
         app()->singleton(ShopifyClient::class, fn() => $client);
         app()->singleton(ShopifyProductService::class, fn() => new ShopifyProductService($client));
         app()->singleton(ShopifyOrderService::class, fn() => new ShopifyOrderService($client));
-        
+
         return app(OfferService::class);
     }
 
@@ -167,7 +168,7 @@ class OfferController extends Controller
     {
         try {
             $offerService = $this->makeOfferService($request);
-            
+
             if ($request->query('push') === 'true') {
                 $metafields = $offerService->updateOfferMetafields($offer);
             } else {
@@ -224,11 +225,32 @@ class OfferController extends Controller
     {
         try {
             $shopModel = ShopifyShop::findOrFail($shop);
-            
+
             // Normalize order ID to URI format
             $orderIdUri = str_starts_with($orderId, 'gid://shopify/Order/')
                 ? $orderId
                 : "gid://shopify/Order/{$orderId}";
+
+            // Extract numeric order ID for payload
+            $orderIdNumeric = (int) str_replace('gid://shopify/Order/', '', $orderIdUri);
+
+            // Create a synthetic webhook record for tracking the force repick operation
+            $webhook = Webhook::create([
+                'shop_id' => $shop,
+                'shopify_topic' => 'admin/force_repick',
+                'is_force_repick' => true,
+                'valid_hmac' => true,
+                'valid_shop_matched' => true,
+                'payload' => json_encode([
+                    'id' => $orderIdNumeric,
+                    'admin_graphql_api_id' => $orderIdUri,
+                    'initiated_by_user_id' => $request->user()->id,
+                ]),
+                'headers' => json_encode([
+                    'x-shopify-shop-domain' => [$shopModel->shop_domain],
+                    'x-shopify-topic' => ['admin/force_repick'],
+                ]),
+            ]);
 
             // Create the order processing service for this shop
             $client = new ShopifyClient($shopModel);
@@ -245,16 +267,29 @@ class OfferController extends Controller
                 $productService
             );
 
-            // Process order with force repick enabled
+            // Process order with force repick enabled, now passing the webhook ID
             $orderProcessingService->processOrder(
                 $orderIdUri,
-                null, // no webhook ID
+                $webhook->id, // Pass webhook ID for tracking
                 true, // force repick
                 $request->user()->id // user ID for audit log
             );
 
-            return response()->json(['message' => 'Order manifests repicked successfully']);
+            // Update webhook status on success
+            $webhook->update(['success_ts' => now()]);
+
+            return response()->json([
+                'message' => 'Order manifests repicked successfully',
+                'webhook_id' => $webhook->id,
+            ]);
         } catch (\Exception $e) {
+            // Update webhook status on error if it exists
+            if (isset($webhook)) {
+                $webhook->update([
+                    'error_ts' => now(),
+                    'error_message' => $e->getMessage(),
+                ]);
+            }
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -266,7 +301,7 @@ class OfferController extends Controller
     {
         try {
             $shopModel = ShopifyShop::findOrFail($shop);
-            
+
             // Normalize order ID to URI format
             $orderIdUri = str_starts_with($orderId, 'gid://shopify/Order/')
                 ? $orderId
