@@ -424,6 +424,9 @@ class OfferService
             return null;
         }
 
+        // Total manifests available for this offer (total bottles in manifests)
+        $totalManifestQty = OfferManifest::where('offer_id', $offerId)->count();
+
         // Get order IDs linked to this offer's variant
         $orderVariants = OrderToVariant::where('variant_id', $offer->offer_variant_id)
             ->select('order_id', 'variant_id')
@@ -444,6 +447,7 @@ class OfferService
                     'purchasedValue' => 0,
                     'upgradeValue' => 0,
                     'upgradeCost' => 0,
+                    'totalManifests' => (int) $totalManifestQty,
                 ],
             ];
         }
@@ -466,6 +470,7 @@ class OfferService
             'purchasedValue' => 0,
             'upgradeValue' => 0,
             'upgradeCost' => 0,
+            'totalManifests' => (int) $totalManifestQty,
         ];
 
         foreach ($shopifyOrders as $order) {

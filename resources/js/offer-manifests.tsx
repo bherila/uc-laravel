@@ -212,7 +212,11 @@ function ShopifyManifestsPage() {
         </div>
         <div className="border rounded-md p-4">
           <div className="text-sm text-muted-foreground">Total Bottles Sold</div>
-          <div className="text-2xl font-semibold">{data.totals.purchasedQty}</div>
+          <div className="text-2xl font-semibold">
+            {data.totals.totalManifests !== undefined
+              ? `${data.totals.purchasedQty} of ${data.totals.totalManifests}`
+              : data.totals.purchasedQty}
+          </div>
         </div>
         <div className="border rounded-md p-4">
           <div className="text-sm text-muted-foreground">Total Revenue</div>
