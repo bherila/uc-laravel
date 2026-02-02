@@ -195,9 +195,9 @@ function OfferDetailPage() {
 
   return (
     <Container>
-      <ShopOfferBreadcrumb 
-        shopId={shopId!} 
-        shopName={offer.shop?.name} 
+      <ShopOfferBreadcrumb
+        shopId={shopId!}
+        shopName={offer.shop?.name}
         offer={{ id: offer.offer_id, name: offer.offer_name }}
       />
 
@@ -309,7 +309,7 @@ function OfferDetailPage() {
         </Alert>
       )}
 
-      {offer.deficit > 0 && (
+      {offer.deficit !== 0 && (
         <Alert variant="destructive" className="mb-6">
           <AlertTitle>Inventory Mismatch!</AlertTitle>
           <AlertDescription className="space-y-2">
