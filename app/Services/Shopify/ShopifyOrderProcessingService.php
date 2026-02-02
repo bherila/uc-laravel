@@ -367,6 +367,13 @@ class ShopifyOrderProcessingService
             ->update(['assignee_id' => null]);
 
         $this->logSub("Reverted {$rowsReverted} rows due to insufficient allocation");
+
+        // Set variant quantity to 0
+        try {
+            $this->productService->setVariantQuantity($purchasedDealVariantUri, 0);
+        } catch (\Exception $e) {
+            $this->logSub("Set quantity error: " . $e->getMessage());
+        }
     }
 
     private function syncOrderLineItems(string $orderIdUri, array $shopifyOrder): void
