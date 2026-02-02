@@ -289,18 +289,22 @@ class ShopifyOrderProcessingService
             }
 
             // Check diversity - get unique variants assigned to this order
-            $assignedVariants = OfferManifest::where('assignee_id', $orderIdUri)
+            $assignedManifests = OfferManifest::where('assignee_id', $orderIdUri)
                 ->where('offer_id', $this->currentOfferId)
-                ->distinct()
-                ->pluck('mf_variant')
-                ->toArray();
+                ->get();
+
+            $assignedVariants = $assignedManifests->pluck('mf_variant')->unique()->toArray();
+            $totalAssigned = $assignedManifests->count();
 
             $hasVariety = count($assignedVariants) > 1;
 
-            if ($hasVariety || $needQty === 1) {
+            if ($hasVariety || $totalAssigned <= 1) {
                 $this->logSub("Allocation has variety ({$attempt} attempt(s)), proceeding with " . count($assignedVariants) . " unique variants");
                 return;
             }
+
+            // Ensure we allocate the full amount if we retry
+            $needQty = $totalAssigned;
 
             // All assigned manifests are the same variant - check if variety exists in unassigned
             $unassignedVariants = OfferManifest::where('offer_id', $this->currentOfferId)
