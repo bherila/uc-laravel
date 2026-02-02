@@ -74,6 +74,7 @@ class ShopifyProductService
                     }
                     product {
                         title
+                        tags
                     }
                     inventoryItem {
                         id
@@ -323,7 +324,9 @@ class ShopifyProductService
                         'tags' => $product['tags'] ?? [],
                     ];
 
-                    Cache::put('shopify_variant_data_' . md5($variantId), $data, 3600);
+                    if (in_array('manifest-item', $data['tags'])) {
+                        Cache::put('shopify_variant_data_' . md5($variantId), $data, 3600);
+                    }
                     $result[$variantId] = $data;
                 }
             } catch (\Exception $e) {
@@ -358,25 +361,34 @@ class ShopifyProductService
     {
         $cacheKey = 'shopify_variant_detail_' . md5($offerVariantId);
 
-        return Cache::remember($cacheKey, 3600, function () use ($offerId, $offerVariantId) {
-            try {
-                $response = $this->client->graphql(self::GQL_GET_VARIANT_DETAIL, ['id' => $offerVariantId]);
-                $node = $response['node'] ?? null;
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return $cached;
+        }
 
-                if (!$node) {
-                    throw new \RuntimeException('Variant not found');
-                }
+        try {
+            $response = $this->client->graphql(self::GQL_GET_VARIANT_DETAIL, ['id' => $offerVariantId]);
+            $node = $response['node'] ?? null;
 
-                return [
-                    'inventoryQuantity' => $node['inventoryQuantity'] ?? null,
-                    'product' => $node['product'],
-                    'inventoryItem' => $node['inventoryItem'],
-                ];
-            } catch (\Exception $e) {
-                $this->logError($e, 'genShopifyDetail', $offerId);
-                throw $e;
+            if (!$node) {
+                throw new \RuntimeException('Variant not found');
             }
-        });
+
+            $data = [
+                'inventoryQuantity' => $node['inventoryQuantity'] ?? null,
+                'product' => $node['product'],
+                'inventoryItem' => $node['inventoryItem'],
+            ];
+
+            if (in_array('manifest-item', $data['product']['tags'] ?? [])) {
+                Cache::put($cacheKey, $data, 3600);
+            }
+
+            return $data;
+        } catch (\Exception $e) {
+            $this->logError($e, 'genShopifyDetail', $offerId);
+            throw $e;
+        }
     }
 
     /**
@@ -560,7 +572,9 @@ class ShopifyProductService
             foreach ($productEdge['node']['variants']['nodes'] ?? [] as $variant) {
                 if (strtolower($variant['sku'] ?? '') === strtolower($sku)) {
                     $variantId = $variant['id'];
-                    Cache::put($cacheKey, $variantId, 3600);
+                    if (in_array('manifest-item', $productEdge['node']['tags'] ?? [])) {
+                        Cache::put($cacheKey, $variantId, 3600);
+                    }
                     return $variantId;
                 }
             }
@@ -620,7 +634,9 @@ class ShopifyProductService
                             foreach ($chunk as $requestedSku) {
                                 if (strtolower($foundSku) === strtolower($requestedSku)) {
                                     $results[$requestedSku] = $variant['id'];
-                                    Cache::put('shopify_variant_id_by_sku_' . md5($requestedSku), $variant['id'], 3600);
+                                    if (in_array('manifest-item', $productEdge['node']['tags'] ?? [])) {
+                                        Cache::put('shopify_variant_id_by_sku_' . md5($requestedSku), $variant['id'], 3600);
+                                    }
                                 }
                             }
                         }
@@ -661,7 +677,7 @@ class ShopifyProductService
 
         $cacheKey = 'shopify_products_' . $type;
 
-        return Cache::remember($cacheKey, 3600, function () use ($type) {
+        $fetcher = function () use ($type) {
             $result = [];
             $cursor = null;
             $filter = "tag:{$type} (status:active OR status:draft)";
@@ -697,7 +713,13 @@ class ShopifyProductService
             } while ($hasNextPage);
 
             return $result;
-        });
+        };
+
+        if ($type === 'manifest-item') {
+            return Cache::remember($cacheKey, 3600, $fetcher);
+        }
+
+        return $fetcher();
     }
 
     /**
