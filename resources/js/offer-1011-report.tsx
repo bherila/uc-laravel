@@ -117,10 +117,10 @@ function Report1011Page() {
   }, [apiBase, shopId, offerId]);
 
   const downloadCSV = () => {
-    if (!data || data.rows.length === 0) return;
+    if (!data || data.rows.length === 0 || !data.rows[0]) return;
 
     // Get column headers from first row
-    const headers = Object.keys(data.rows[0]);
+    const headers = Object.keys(data.rows[0]) as (keyof ReportRow)[];
     
     // Helper function to escape and quote CSV values
     const escapeCSVValue = (value: string): string => {
@@ -137,7 +137,7 @@ function Report1011Page() {
     const csvLines = [
       headers.join(','),
       ...data.rows.map(row => 
-        headers.map(header => escapeCSVValue(row[header as keyof ReportRow])).join(',')
+        headers.map(header => escapeCSVValue(row[header])).join(',')
       )
     ];
 
@@ -162,9 +162,8 @@ function Report1011Page() {
         <ShopOfferBreadcrumb
           shopId={shopId!}
           shopName={data?.shop?.name}
-          offerId={offerId!}
-          offerName={offerName}
-          currentPage="1011 Report"
+          offer={offerId ? { id: offerId, name: offerName } : undefined}
+          action="1011 Report"
         />
         <div className="space-y-4 mt-6">
           <Skeleton className="h-10 w-full" />
@@ -180,9 +179,8 @@ function Report1011Page() {
         <ShopOfferBreadcrumb
           shopId={shopId!}
           shopName={data?.shop?.name}
-          offerId={offerId!}
-          offerName={offerName}
-          currentPage="1011 Report"
+          offer={offerId ? { id: offerId, name: offerName } : undefined}
+          action="1011 Report"
         />
         <Alert variant="destructive" className="mt-6">
           <AlertDescription>{error}</AlertDescription>
@@ -268,9 +266,8 @@ function Report1011Page() {
         <ShopOfferBreadcrumb
           shopId={shopId!}
           shopName={data?.shop?.name}
-          offerId={offerId!}
-          offerName={offerName}
-          currentPage="1011 Report"
+          offer={offerId ? { id: offerId, name: offerName } : undefined}
+          action="1011 Report"
         />
       </div>
 
