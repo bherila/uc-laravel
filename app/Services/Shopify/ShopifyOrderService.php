@@ -53,7 +53,10 @@ class ShopifyOrderService
         GRAPHQL;
 
     private const GQL_GET_ORDERS = <<<'GRAPHQL'
-        query GetOrders($ids: [ID!]!) {
+        query GetOrders(
+            $ids: [ID!]!,
+            $should_fetch_extended_customer_details: Boolean! = false
+        ) {
             nodes(ids: $ids) {
                 ... on Order {
                     id
@@ -137,8 +140,39 @@ class ShopifyOrderService
                             url
                         }
                     }
+                    customer @include(if: $should_fetch_extended_customer_details) {
+                        id
+                        email
+                        firstName
+                        lastName
+                        ...CustomerExtendedFields
+                    }
                 }
             }
+        }
+
+        fragment CustomerExtendedFields on Customer {
+            metafield(namespace: "custom", key: "birthday") {
+                value
+            }
+            defaultAddress {
+                ...AddressFields
+            }
+            addresses(first: 10) {
+                ...AddressFields
+            }
+        }
+
+        fragment AddressFields on MailingAddress {
+            id
+            firstName
+            lastName
+            address1
+            address2
+            city
+            provinceCode
+            zip
+            phone
         }
         GRAPHQL;
 
@@ -253,11 +287,15 @@ class ShopifyOrderService
      * Get orders with line items
      *
      * @param array<string> $orderIds
+     * @param bool $shouldFetchExtendedCustomerDetails
      * @return array
      */
-    public function getOrdersWithLineItems(array $orderIds): array
+    public function getOrdersWithLineItems(array $orderIds, bool $shouldFetchExtendedCustomerDetails = false): array
     {
-        $response = $this->client->graphql(self::GQL_GET_ORDERS, ['ids' => $orderIds]);
+        $response = $this->client->graphql(self::GQL_GET_ORDERS, [
+            'ids' => $orderIds,
+            'should_fetch_extended_customer_details' => $shouldFetchExtendedCustomerDetails,
+        ]);
 
         $orders = [];
         foreach ($response['nodes'] ?? [] as $node) {
@@ -332,6 +370,20 @@ class ShopifyOrderService
                 $shippingLine = $shippingLines[0];
             }
 
+            $customer = null;
+            if (isset($node['customer'])) {
+                $c = $node['customer'];
+                $customer = [
+                    'id' => $c['id'],
+                    'email' => $c['email'],
+                    'firstName' => $c['firstName'],
+                    'lastName' => $c['lastName'],
+                    'birthday' => $c['metafield']['value'] ?? null,
+                    'defaultAddress' => $c['defaultAddress'],
+                    'addresses' => $c['addresses'],
+                ];
+            }
+
             $orders[] = [
                 'id' => $node['id'],
                 'cancelledAt' => $node['cancelledAt'],
@@ -348,6 +400,7 @@ class ShopifyOrderService
                 'transactions_nodes' => $transactions,
                 'fulfillmentOrders_nodes' => $fulfillmentOrders,
                 'fulfillments_nodes' => $fulfillments,
+                'customer' => $customer,
             ];
         }
 
