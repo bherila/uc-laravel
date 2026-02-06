@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Discussion
+    url: https://github.com/bherila/uc-laravel/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 🔒 Security Issue
+    url: https://github.com/bherila/uc-laravel/security
+    about: Report security vulnerabilities privately (see SECURITY.md)
