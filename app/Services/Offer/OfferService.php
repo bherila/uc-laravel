@@ -583,4 +583,203 @@ class OfferService
         // 3. Ensure general product lists are cleared (in case offer has no manifests yet)
         $this->shopifyProductService->clearProductCaches($offer->offer_variant_id);
     }
+
+    /**
+     * Generate 1011 report data for an offer
+     *
+     * @param int $offerId
+     * @return array|null
+     */
+    public function generate1011Report(int $offerId): ?array
+    {
+        $offer = Offer::with('shop:id,name,shop_domain')->find($offerId);
+
+        if (!$offer) {
+            return null;
+        }
+
+        // Get order IDs linked to this offer's variant
+        $orderVariants = OrderToVariant::where('variant_id', $offer->offer_variant_id)
+            ->select('order_id', 'variant_id')
+            ->get();
+
+        if ($orderVariants->isEmpty()) {
+            return [
+                'offer_id' => $offerId,
+                'offer_name' => $offer->offer_name,
+                'variant_id' => $offer->offer_variant_id,
+                'shop_id' => $offer->shop_id,
+                'shop' => $offer->shop,
+                'rows' => [],
+            ];
+        }
+
+        $orderIds = $orderVariants->pluck('order_id')->toArray();
+
+        // Get orders from Shopify with extended customer details
+        $shopifyOrders = $this->shopifyOrderService->getOrdersWithLineItems($orderIds, true);
+
+        // Process each order and create rows for the 1011 report
+        $rows = [];
+        foreach ($shopifyOrders as $order) {
+            $lineItems = $order['lineItems_nodes'] ?? [];
+            
+            foreach ($lineItems as $lineItem) {
+                // Extract order number from name (e.g., "#1234")
+                $orderName = $order['name'] ?? '';
+                $orderNumber = ltrim($orderName, '#');
+                
+                // Sales Order Key = Order Number + Item SKU
+                $itemSku = $lineItem['sku'] ?? '';
+                $salesOrderKey = $orderNumber . '_' . $itemSku;
+                
+                // Get customer birthday
+                $birthday = $order['customer']['birthday'] ?? '';
+                
+                // Get billing address
+                $billingAddress = $order['billingAddress'] ?? [];
+                
+                // Get shipping address
+                $shippingAddress = $order['shippingAddress'] ?? [];
+                
+                // Get fulfillment info
+                $fulfillments = $order['fulfillments_nodes'] ?? [];
+                $carrierService = '';
+                $shipDate = '';
+                $trackingNumbers = [];
+                
+                foreach ($fulfillments as $fulfillment) {
+                    if (!empty($fulfillment['trackingInfo'])) {
+                        foreach ($fulfillment['trackingInfo'] as $tracking) {
+                            if (!empty($tracking['company'])) {
+                                $carrierService = $tracking['company'];
+                            }
+                            if (!empty($tracking['number'])) {
+                                $trackingNumbers[] = $tracking['number'];
+                            }
+                        }
+                        if (!empty($fulfillment['createdAt'])) {
+                            $shipDate = $fulfillment['createdAt'];
+                        }
+                    }
+                }
+                
+                // Join tracking numbers with semicolon
+                $trackingNumber = implode(';', $trackingNumbers);
+                
+                // Get discount percentage
+                $discountPercent = '';
+                $discountApplications = $order['discountApplications'] ?? [];
+                foreach ($discountApplications as $app) {
+                    if (isset($app['value']['percentage'])) {
+                        $discountPercent = $app['value']['percentage'];
+                        break;
+                    }
+                }
+                
+                // Map fulfillment status to shipment status enum
+                $fulfillmentStatus = $order['fulfillmentStatus'] ?? 'UNFULFILLED';
+                $shipmentStatus = match($fulfillmentStatus) {
+                    'FULFILLED' => 'Shipped',
+                    'PARTIAL' => 'InProcess',
+                    'UNFULFILLED' => 'Open',
+                    'RESTOCKED' => 'Cancelled',
+                    'SCHEDULED' => 'Pending',
+                    default => 'Open'
+                };
+                
+                // Get gift note from customAttributes or order note
+                $giftNote = '';
+                foreach ($lineItem['customAttributes'] ?? [] as $attr) {
+                    if (strtolower($attr['key']) === 'gift_note' || strtolower($attr['key']) === 'giftnote') {
+                        $giftNote = $attr['value'];
+                        break;
+                    }
+                }
+                if (empty($giftNote)) {
+                    $giftNote = $order['note'] ?? '';
+                }
+                
+                // Get weight - prefer variant weight, fallback to inventoryItem measurement
+                $weight = $lineItem['variant_weight'] ?? 
+                         $lineItem['variant_inventoryItem_measurement_weight_value'] ?? '';
+                
+                $rows[] = [
+                    'Version' => '1011',
+                    'Company' => '',
+                    'Sales Order Key' => $salesOrderKey,
+                    'Fulfillment Account Key' => '',
+                    'Shipment Key' => '',
+                    'Club Type' => '',
+                    'Sub Club' => '',
+                    'Pickup' => '',
+                    '3 Tier' => '',
+                    'Tags' => 'Add-20133',
+                    'Reserved 1' => '',
+                    'Reserved 2' => '',
+                    'Reserved 3' => '',
+                    'Billing Last Name' => $billingAddress['lastName'] ?? '',
+                    'Billing First Name' => $billingAddress['firstName'] ?? '',
+                    'Billing Company' => $billingAddress['company'] ?? '',
+                    'Billing Address 1' => $billingAddress['address1'] ?? '',
+                    'Billing Address 2' => $billingAddress['address2'] ?? '',
+                    'Billing City' => $billingAddress['city'] ?? '',
+                    'Billing State' => $billingAddress['provinceCode'] ?? '',
+                    'Billing Zip' => $billingAddress['zip'] ?? '',
+                    'Billing Date Of Birth' => $birthday,
+                    'Billing Email' => $order['email'] ?? '',
+                    'Billing Phone' => $billingAddress['phone'] ?? '',
+                    'Sales Type' => 'Offsite',
+                    'Order Type' => 'Internet',
+                    'Customer Number' => '',
+                    'Payment Date' => $order['processedAt'] ?? '',
+                    'Shipping Last Name' => $shippingAddress['lastName'] ?? '',
+                    'Shipping First Name' => $shippingAddress['firstName'] ?? '',
+                    'Shipping Company' => $shippingAddress['company'] ?? '',
+                    'Shipping Address 1' => $shippingAddress['address1'] ?? '',
+                    'Shipping Address 2' => $shippingAddress['address2'] ?? '',
+                    'Shipping City' => $shippingAddress['city'] ?? '',
+                    'Shipping State' => $shippingAddress['provinceCode'] ?? '',
+                    'Shipping Zip' => $shippingAddress['zip'] ?? '',
+                    'Shipping County' => $shippingAddress['province'] ?? '',
+                    'Shipping Date Of Birth' => $birthday,
+                    'Shipping Email' => $order['email'] ?? '',
+                    'Shipping Phone' => $shippingAddress['phone'] ?? '',
+                    'Carrier Service' => $carrierService,
+                    'Ship Date' => $shipDate,
+                    'Freight Cost' => (string)$order['totalShippingPriceSet_shopMoney_amount'],
+                    'Tracking Number' => $trackingNumber,
+                    'Sample Type' => '',
+                    'Age Check ID' => '',
+                    'Discount Amount' => (string)$order['currentTotalDiscountsSet_shopMoney_amount'],
+                    'Discount %' => $discountPercent,
+                    'RDBI' => '',
+                    'Compliant' => '',
+                    'Compliance Results' => '',
+                    'Fulfillment House' => '',
+                    'Shipment Status' => $shipmentStatus,
+                    'License Relationship' => 'Default',
+                    'Insured Amount' => '',
+                    'Sales Tax Charged' => (string)$order['currentTotalTaxSet_shopMoney_amount'],
+                    'Handling Fees' => '',
+                    'Gift Note' => $giftNote,
+                    'Special Instructions' => $order['note'] ?? '',
+                    'Brand Key' => '',
+                    'Product Key' => $itemSku,
+                    'Quantity' => (string)$lineItem['currentQuantity'],
+                    'Unit Price' => (string)$lineItem['originalUnitPriceSet_shopMoney_amount'],
+                    'Weight' => (string)$weight,
+                ];
+            }
+        }
+
+        return [
+            'offer_id' => $offerId,
+            'offer_name' => $offer->offer_name,
+            'variant_id' => $offer->offer_variant_id,
+            'shop_id' => $offer->shop_id,
+            'shop' => $offer->shop,
+            'rows' => $rows,
+        ];
+    }
 }

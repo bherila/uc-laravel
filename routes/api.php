@@ -39,6 +39,7 @@ Route::middleware(['auth', 'shop.access'])->prefix('shops/{shop}')->group(functi
     Route::post('offers/{offer}/force-reload', [OfferController::class, 'forceReload'])->middleware('shop.access:write');
     Route::get('offers/{offer}/metafields', [OfferController::class, 'metafields']);
     Route::get('offers/{offer}/orders', [OfferController::class, 'orders']);
+    Route::get('offers/{offer}/1011-report', [OfferController::class, 'report1011']);
 
     // Offer Manifests
     Route::get('offers/{offer}/manifests', [OfferManifestController::class, 'index']);

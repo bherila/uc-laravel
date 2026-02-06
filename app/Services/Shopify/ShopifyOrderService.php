@@ -60,11 +60,15 @@ class ShopifyOrderService
             nodes(ids: $ids) {
                 ... on Order {
                     id
+                    name
                     cancelledAt
                     createdAt
+                    processedAt
                     email
+                    note
                     displayFinancialStatus
                     displayFulfillmentStatus
+                    fulfillmentStatus
                     totalPriceSet {
                         shopMoney {
                             amount
@@ -75,6 +79,76 @@ class ShopifyOrderService
                             amount
                             currencyCode
                         }
+                    }
+                    currentTotalDiscountsSet {
+                        shopMoney {
+                            amount
+                        }
+                    }
+                    currentTotalTaxSet {
+                        shopMoney {
+                            amount
+                        }
+                    }
+                    discountApplications(first: 10) {
+                        nodes {
+                            ... on DiscountCodeApplication {
+                                code
+                                value {
+                                    ... on MoneyV2 {
+                                        amount
+                                    }
+                                    ... on PricingPercentageValue {
+                                        percentage
+                                    }
+                                }
+                            }
+                            ... on ManualDiscountApplication {
+                                value {
+                                    ... on MoneyV2 {
+                                        amount
+                                    }
+                                    ... on PricingPercentageValue {
+                                        percentage
+                                    }
+                                }
+                            }
+                            ... on AutomaticDiscountApplication {
+                                title
+                                value {
+                                    ... on MoneyV2 {
+                                        amount
+                                    }
+                                    ... on PricingPercentageValue {
+                                        percentage
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    billingAddress {
+                        firstName
+                        lastName
+                        company
+                        address1
+                        address2
+                        city
+                        provinceCode
+                        province
+                        zip
+                        phone
+                    }
+                    shippingAddress {
+                        firstName
+                        lastName
+                        company
+                        address1
+                        address2
+                        city
+                        provinceCode
+                        province
+                        zip
+                        phone
                     }
                     shippingLines(first: 10, includeRemovals: true) {
                         nodes {
@@ -90,8 +164,14 @@ class ShopifyOrderService
                             id
                             currentQuantity
                             title
+                            sku
+                            customAttributes {
+                                key
+                                value
+                            }
                             variant {
                                 id
+                                sku
                                 inventoryItem {
                                     id
                                     measurement {
@@ -105,6 +185,8 @@ class ShopifyOrderService
                                 product {
                                     tags
                                 }
+                                weight
+                                weightUnit
                             }
                             originalUnitPriceSet {
                                 shopMoney {
@@ -135,9 +217,11 @@ class ShopifyOrderService
                     }
                     fulfillments(first: 5) {
                         status
+                        createdAt
                         trackingInfo {
                             number
                             url
+                            company
                         }
                     }
                     customer @include(if: $should_fetch_extended_customer_details) {
@@ -171,6 +255,7 @@ class ShopifyOrderService
             address2
             city
             provinceCode
+            province
             zip
             phone
         }
@@ -309,12 +394,16 @@ class ShopifyOrderService
                     'line_item_id' => $item['id'],
                     'currentQuantity' => $item['currentQuantity'],
                     'title' => $item['title'],
+                    'sku' => $item['sku'] ?? $item['variant']['sku'] ?? '',
+                    'customAttributes' => $item['customAttributes'] ?? [],
                     'product_tags' => $item['variant']['product']['tags'] ?? [],
                     'variant_variant_graphql_id' => $item['variant']['id'] ?? null,
                     'variant_inventoryItem_id' => $item['variant']['inventoryItem']['id'] ?? null,
                     'variant_inventoryItem_measurement_id' => $item['variant']['inventoryItem']['measurement']['id'] ?? null,
                     'variant_inventoryItem_measurement_weight_unit' => $item['variant']['inventoryItem']['measurement']['weight']['unit'] ?? null,
                     'variant_inventoryItem_measurement_weight_value' => $item['variant']['inventoryItem']['measurement']['weight']['value'] ?? null,
+                    'variant_weight' => $item['variant']['weight'] ?? null,
+                    'variant_weightUnit' => $item['variant']['weightUnit'] ?? null,
                     'originalUnitPriceSet_shopMoney_amount' => (float)($item['originalUnitPriceSet']['shopMoney']['amount'] ?? 0),
                     'discountedTotalSet_shopMoney_amount' => (float)($item['discountedTotalSet']['shopMoney']['amount'] ?? 0),
                 ];
@@ -345,10 +434,12 @@ class ShopifyOrderService
                     $tracking[] = [
                         'number' => $ti['number'],
                         'url' => $ti['url'],
+                        'company' => $ti['company'] ?? null,
                     ];
                 }
                 $fulfillments[] = [
                     'status' => $f['status'],
+                    'createdAt' => $f['createdAt'] ?? null,
                     'trackingInfo' => $tracking,
                 ];
             }
@@ -386,14 +477,23 @@ class ShopifyOrderService
 
             $orders[] = [
                 'id' => $node['id'],
+                'name' => $node['name'] ?? '',
                 'cancelledAt' => $node['cancelledAt'],
                 'createdAt' => $node['createdAt'],
+                'processedAt' => $node['processedAt'] ?? null,
                 'email' => $node['email'],
+                'note' => $node['note'] ?? '',
                 'displayFinancialStatus' => $node['displayFinancialStatus'],
                 'displayFulfillmentStatus' => $node['displayFulfillmentStatus'],
+                'fulfillmentStatus' => $node['fulfillmentStatus'] ?? 'UNFULFILLED',
                 'totalPriceSet_shopMoney_amount' => (float)($node['totalPriceSet']['shopMoney']['amount'] ?? 0),
                 'totalShippingPriceSet_shopMoney_amount' => (float)($node['totalShippingPriceSet']['shopMoney']['amount'] ?? 0),
                 'totalShippingPriceSet_shopMoney_currencyCode' => $node['totalShippingPriceSet']['shopMoney']['currencyCode'] ?? 'USD',
+                'currentTotalDiscountsSet_shopMoney_amount' => (float)($node['currentTotalDiscountsSet']['shopMoney']['amount'] ?? 0),
+                'currentTotalTaxSet_shopMoney_amount' => (float)($node['currentTotalTaxSet']['shopMoney']['amount'] ?? 0),
+                'discountApplications' => $node['discountApplications']['nodes'] ?? [],
+                'billingAddress' => $node['billingAddress'] ?? null,
+                'shippingAddress' => $node['shippingAddress'] ?? null,
                 'shippingLine' => $shippingLine,
                 'shippingLines' => $node['shippingLines'] ?? [],
                 'lineItems_nodes' => $lineItems,

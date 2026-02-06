@@ -110,6 +110,15 @@ Route::middleware('auth')->group(function () {
                 'offerName' => $offer->offer_name,
             ]);
         })->name('shop.offers.manifests');
+
+        Route::get('/offers/{offerId}/1011_report', function (Request $request, $shop, $offerId) {
+            $offer = Offer::findOrFail($offerId);
+            return view('offer-1011-report', [
+                'shopId' => $shop, 
+                'offerId' => $offerId,
+                'offerName' => $offer->offer_name,
+            ]);
+        })->name('shop.offers.1011-report');
     });
 
     // Admin routes
