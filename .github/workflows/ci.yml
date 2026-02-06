@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, iconv, sqlite3
+
+      - name: Install Composer (with dev)
+        run: composer install --no-interaction --prefer-dist
+        
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run JS/TS Type Check
+        run: pnpm run type-check
+
+      - name: Build frontend
+        run: pnpm run build
+
+      - name: Run JS/TS Tests
+        run: pnpm run test
+
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit --configuration phpunit.xml
