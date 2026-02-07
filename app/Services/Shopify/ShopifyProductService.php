@@ -47,8 +47,12 @@ class ShopifyProductService
                                 currencyCode
                             }
                         }
-                        featuredImage {
-                            url(transform: { maxWidth: 500, preferredContentType: WEBP })
+                        featuredMedia {
+                            preview {
+                                image {
+                                    url(transform: { maxWidth: 500, preferredContentType: WEBP })
+                                }
+                            }
                         }
                         metafields(keys: ["custom.end_date", "custom.start_date"], first: 10) {
                             nodes {
@@ -91,87 +95,19 @@ class ShopifyProductService
         }
         GRAPHQL;
 
-    private const GQL_WRITE_PRODUCT_METAFIELD = <<<'GRAPHQL'
-        mutation UpdateProductMetafield($productId: ID!, $key: String!, $value: String!) {
-            productUpdate(input: {
-                id: $productId,
-                metafields: [
-                    {
-                        namespace: "custom",
-                        key: $key,
-                        value: $value,
-                        type: "json",
-                    },
-                ],
-            }) {
-                product {
+    private const GQL_METAFIELDS_SET = <<<'GRAPHQL'
+        mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+                metafields {
                     id
-                    metafields(first: 10) {
-                        edges {
-                            node {
-                                namespace
-                                key
-                                value
-                                type
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        GRAPHQL;
-
-    private const GQL_WRITE_PRODUCT_METAFIELDS = <<<'GRAPHQL'
-        mutation UpdateProductMetafields($productId: ID!, $metafields: [MetafieldInput!]!) {
-            productUpdate(input: {
-                id: $productId,
-                metafields: $metafields,
-            }) {
-                product {
-                    id
-                    metafields(first: 20) {
-                        edges {
-                            node {
-                                namespace
-                                key
-                                value
-                                type
-                            }
-                        }
-                    }
+                    namespace
+                    key
+                    value
                 }
                 userErrors {
+                    code
                     field
                     message
-                }
-            }
-        }
-        GRAPHQL;
-
-    private const GQL_WRITE_VARIANT_METAFIELD = <<<'GRAPHQL'
-        mutation UpdateMetafield($variantId: ID!, $key: String!, $value: String!) {
-            productVariantUpdate(input: {
-                id: $variantId,
-                metafields: [
-                    {
-                        key: $key,
-                        value: $value,
-                        type: "json",
-                    },
-                ],
-            }) {
-                productVariant {
-                    id
-                    metafields(first: 10) {
-                        edges {
-                            node {
-                                namespace
-                                key
-                                value
-                                type
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -317,7 +253,7 @@ class ShopifyProductService
                         'inventoryQuantity' => $node['inventoryQuantity'] ?? 0,
                         'inventoryItem' => $node['inventoryItem'],
                         'priceRange' => $product['priceRangeV2'] ?? null,
-                        'featuredImage' => $product['featuredImage']['url'] ?? null,
+                        'featuredImage' => $product['featuredMedia']['preview']['image']['url'] ?? null,
                         'startDate' => $startDate,
                         'endDate' => $endDate,
                         'status' => $product['status'] ?? null,
@@ -405,6 +341,7 @@ class ShopifyProductService
             $metafieldInputs = [];
             foreach ($metafields as $key => $value) {
                 $metafieldInputs[] = [
+                    'ownerId' => $productId,
                     'namespace' => 'custom',
                     'key' => $key,
                     'value' => $value,
@@ -413,23 +350,22 @@ class ShopifyProductService
             }
 
             $result['vars'] = [
-                'productId' => $productId,
                 'metafields' => $metafieldInputs,
             ];
 
-            $response = $this->client->graphql(self::GQL_WRITE_PRODUCT_METAFIELDS, $result['vars']);
+            $response = $this->client->graphql(self::GQL_METAFIELDS_SET, $result['vars']);
 
-            if (!empty($response['productUpdate']['userErrors'])) {
-                $result['errors'] = $response['productUpdate']['userErrors'];
+            if (!empty($response['metafieldsSet']['userErrors'])) {
+                $result['errors'] = $response['metafieldsSet']['userErrors'];
                 throw new \RuntimeException('Shopify user errors: ' . json_encode($result['errors']));
             }
 
-            $result['edges'] = $response['productUpdate']['product']['metafields']['edges'] ?? [];
+            $result['metafields'] = $response['metafieldsSet']['metafields'] ?? [];
 
             // Clear caches
             $this->clearProductCaches($productId);
 
-            return $result['edges'];
+            return $result['metafields'];
         } catch (\Exception $e) {
             $result['error'] = $e->getMessage();
             $this->logError($e, 'metaFieldsSet');
@@ -449,22 +385,7 @@ class ShopifyProductService
      */
     public function writeProductMetafield(string $productId, string $key, string $value): array
     {
-        $result = [];
-        try {
-            $result['vars'] = compact('productId', 'key', 'value');
-            $response = $this->client->graphql(self::GQL_WRITE_PRODUCT_METAFIELD, $result['vars']);
-            $result['edges'] = $response['productUpdate']['product']['metafields']['edges'] ?? [];
-
-            // Clear caches
-            $this->clearProductCaches($productId);
-
-            return $result['edges'];
-        } catch (\Exception $e) {
-            $result['error'] = $e->getMessage();
-            return [];
-        } finally {
-            $this->log($result, 'metaField');
-        }
+        return $this->writeProductMetafields($productId, [$key => $value]);
     }
 
     /**
@@ -477,17 +398,35 @@ class ShopifyProductService
      */
     public function writeVariantMetafield(string $variantId, string $key, string $value): array
     {
+        $result = [];
         try {
-            $vars = compact('variantId', 'key', 'value');
+            $vars = [
+                'metafields' => [
+                    [
+                        'ownerId' => $variantId,
+                        'namespace' => 'custom',
+                        'key' => $key,
+                        'value' => $value,
+                        'type' => 'json',
+                    ],
+                ],
+            ];
+
             $this->log($vars, 'metaField');
-            $response = $this->client->graphql(self::GQL_WRITE_VARIANT_METAFIELD, $vars);
-            $edges = $response['productVariantUpdate']['productVariant']['metafields']['edges'] ?? [];
-            $this->log($edges, 'metaField');
+            $response = $this->client->graphql(self::GQL_METAFIELDS_SET, $vars);
+
+            if (!empty($response['metafieldsSet']['userErrors'])) {
+                $result['errors'] = $response['metafieldsSet']['userErrors'];
+                throw new \RuntimeException('Shopify user errors: ' . json_encode($result['errors']));
+            }
+
+            $result['metafields'] = $response['metafieldsSet']['metafields'] ?? [];
+            $this->log($result['metafields'], 'metaField');
 
             // Clear caches
             $this->clearVariantCaches($variantId);
 
-            return $edges;
+            return $result['metafields'];
         } catch (\Exception $e) {
             $this->logError($e, 'metaField');
             return [];

@@ -15,11 +15,11 @@ class ShopifyOrderService
         mutation cancelOrder($id: ID!, $restockInventory: Boolean = false, $refund: Boolean = true) {
             orderCancel(
                 orderId: $id,
-                refund: $refund,
+                refundMethod: { originalPaymentMethodsRefund: $refund },
                 restock: $restockInventory,
                 reason: OTHER
             ) {
-                userErrors {
+                orderCancelUserErrors {
                     field
                     message
                 }
@@ -223,7 +223,9 @@ class ShopifyOrderService
                     }
                     customer @include(if: $should_fetch_extended_customer_details) {
                         id
-                        email
+                        defaultEmailAddress {
+                            emailAddress
+                        }
                         firstName
                         lastName
                         ...CustomerExtendedFields
@@ -325,6 +327,9 @@ class ShopifyOrderService
         ]);
 
         $result = $response['orderCancel'] ?? [];
+        if (isset($result['orderCancelUserErrors'])) {
+            $result['userErrors'] = $result['orderCancelUserErrors'];
+        }
         $this->log($result, 'cancelOrder');
 
         return ['cancelResult' => $result];
@@ -461,7 +466,7 @@ class ShopifyOrderService
                 $c = $node['customer'];
                 $customer = [
                     'id' => $c['id'],
-                    'email' => $c['email'],
+                    'email' => $c['defaultEmailAddress']['emailAddress'] ?? null,
                     'firstName' => $c['firstName'],
                     'lastName' => $c['lastName'],
                     'birthday' => $c['metafield']['value'] ?? null,
