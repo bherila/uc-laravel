@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchWrapper } from '@/fetchWrapper';
 import { format } from 'date-fns';
 import { Eye, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -32,6 +33,12 @@ interface Webhook {
   error_message: string | null;
 }
 
+interface Shop {
+    id: number;
+    name: string;
+    shop_domain: string;
+}
+
 interface PaginatedResponse<T> {
   data: T[];
   current_page: number;
@@ -43,16 +50,22 @@ interface PaginatedResponse<T> {
 
 function AdminWebhooksPage() {
   const [data, setData] = useState<PaginatedResponse<Webhook> | null>(null);
+  const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [selectedShopId, setSelectedShopId] = useState<string>('all');
   
   const apiBase = document.getElementById('admin-webhooks-root')?.dataset.apiBase || '/api';
 
-  const fetchWebhooks = useCallback(async (pageNum: number) => {
+  const fetchWebhooks = useCallback(async (pageNum: number, shopId: string) => {
     setLoading(true);
     try {
-      const result = await fetchWrapper.get(`${apiBase}/admin/webhooks?page=${pageNum}`);
+      const queryParams = new URLSearchParams({
+          page: pageNum.toString(),
+          shop_id: shopId
+      });
+      const result = await fetchWrapper.get(`${apiBase}/admin/webhooks?${queryParams.toString()}`);
       setData(result);
       setPage(pageNum);
     } catch (err) {
@@ -63,9 +76,24 @@ function AdminWebhooksPage() {
     }
   }, [apiBase]);
 
+  const fetchShops = useCallback(async () => {
+      try {
+          const result = await fetchWrapper.get(`${apiBase}/admin/stores`);
+          setShops(result);
+      } catch (err) {
+          console.error('Failed to load shops', err);
+      }
+  }, [apiBase]);
+
   useEffect(() => {
-    fetchWebhooks(1);
-  }, [fetchWebhooks]);
+    fetchShops();
+    fetchWebhooks(1, 'all');
+  }, [fetchShops, fetchWebhooks]);
+
+  const handleShopChange = (value: string) => {
+      setSelectedShopId(value);
+      fetchWebhooks(1, value);
+  };
 
   const getSizeInKB = (str: string | null) => {
     if (!str) return '0 KB';
@@ -106,11 +134,29 @@ function AdminWebhooksPage() {
 
   return (
     <Container>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <MainTitle>Webhooks</MainTitle>
-        <Button variant="outline" size="sm" onClick={() => fetchWebhooks(page)}>
-            <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+            <div className="w-64">
+                <Select value={selectedShopId} onValueChange={handleShopChange}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Filter by Shop" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">(All)</SelectItem>
+                        <SelectItem value="unmatched">(Unmatched)</SelectItem>
+                        {shops.map(shop => (
+                            <SelectItem key={shop.id} value={shop.id.toString()}>
+                                {shop.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => fetchWebhooks(page, selectedShopId)}>
+                <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+            </Button>
+        </div>
       </div>
       
       <div className="rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
@@ -188,7 +234,7 @@ function AdminWebhooksPage() {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => fetchWebhooks(page - 1)}
+              onClick={() => fetchWebhooks(page - 1, selectedShopId)}
               disabled={!data.prev_page_url || loading}
             >
               Previous
@@ -196,7 +242,7 @@ function AdminWebhooksPage() {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => fetchWebhooks(page + 1)}
+              onClick={() => fetchWebhooks(page + 1, selectedShopId)}
               disabled={!data.next_page_url || loading}
             >
               Next

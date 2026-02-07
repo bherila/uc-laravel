@@ -32,8 +32,17 @@ class WebhookController extends Controller
 
     public function list(Request $request): JsonResponse
     {
-        $webhooks = Webhook::with(['shop'])
-            ->orderBy('id', 'desc')
+        $query = Webhook::with(['shop']);
+
+        if ($request->has('shop_id') && $request->shop_id !== 'all') {
+            if ($request->shop_id === 'unmatched') {
+                $query->whereNull('shop_id');
+            } else {
+                $query->where('shop_id', $request->shop_id);
+            }
+        }
+
+        $webhooks = $query->orderBy('id', 'desc')
             ->paginate(50); // Pagination is good for large lists
 
         return response()->json($webhooks);
