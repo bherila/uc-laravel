@@ -136,7 +136,7 @@ function AdminWebhooksPage() {
     <Container>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <MainTitle>Webhooks</MainTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
             <div className="w-64">
                 <Select value={selectedShopId} onValueChange={handleShopChange}>
                     <SelectTrigger>
