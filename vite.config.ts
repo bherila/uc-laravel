@@ -22,6 +22,7 @@ export default defineConfig({
                 'resources/js/offer-profitability.tsx',
                 'resources/js/offer-metafields.tsx',
                 'resources/js/offer-manifests.tsx',
+                'resources/js/offer-1011-report.tsx',
                 'resources/js/admin-users.tsx',
                 'resources/js/admin-user-detail.tsx',
                 'resources/js/admin-webhooks.tsx',

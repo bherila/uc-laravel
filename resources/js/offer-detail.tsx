@@ -242,6 +242,17 @@ function OfferDetailPage() {
           <Button
             variant="secondary"
             asChild
+            disabled={!offer.hasOrders}
+            className={!offer.hasOrders ? 'opacity-50 pointer-events-none' : ''}
+          >
+            <a href={`/shop/${shopId}/offers/${offerId}/1011_report`}>
+              <ExternalLink className="w-4 h-4 mr-2" />
+              View 1011 report
+            </a>
+          </Button>
+          <Button
+            variant="secondary"
+            asChild
             disabled={!hasManifestProducts}
             className={!hasManifestProducts ? 'opacity-50 pointer-events-none' : ''}
           >

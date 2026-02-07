@@ -205,6 +205,25 @@ class OfferController extends Controller
     }
 
     /**
+     * Get 1011 report data for an offer
+     */
+    public function report1011(Request $request, int $shop, int $offer): JsonResponse
+    {
+        try {
+            $offerService = $this->makeOfferService($request);
+            $report = $offerService->generate1011Report($offer);
+
+            if (!$report) {
+                return response()->json(['error' => 'Offer not found'], 404);
+            }
+
+            return response()->json($report);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Force reload Shopify data for an offer
      */
     public function forceReload(Request $request, int $shop, int $offer): JsonResponse
